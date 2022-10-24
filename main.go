@@ -26,8 +26,9 @@ import (
 	// to ensure that exec-entrypoint and run can make use of them.
 
 	"github.com/uselagoon/storage-calculator/internal/broker"
-	"github.com/uselagoon/storage-calculator/internal/helpers"
 	"github.com/uselagoon/storage-calculator/internal/storage"
+
+	"github.com/uselagoon/machinery/utils/variables"
 	"gopkg.in/robfig/cron.v2"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
@@ -94,11 +95,11 @@ func main() {
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
 
-	calculatorCron = helpers.GetEnv("CALCULATOR_CRON", calculatorCron)
-	ignoreRegex = helpers.GetEnv("LAGOON_STORAGE_IGNORE_REGEX", ignoreRegex)
-	mqUser = helpers.GetEnv("RABBITMQ_USERNAME", mqUser)
-	mqPass = helpers.GetEnv("RABBITMQ_PASSWORD", mqPass)
-	mqHost = helpers.GetEnv("RABBITMQ_HOSTNAME", mqHost)
+	calculatorCron = variables.GetEnv("CALCULATOR_CRON", calculatorCron)
+	ignoreRegex = variables.GetEnv("LAGOON_STORAGE_IGNORE_REGEX", ignoreRegex)
+	mqUser = variables.GetEnv("RABBITMQ_USERNAME", mqUser)
+	mqPass = variables.GetEnv("RABBITMQ_PASSWORD", mqPass)
+	mqHost = variables.GetEnv("RABBITMQ_HOSTNAME", mqHost)
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 

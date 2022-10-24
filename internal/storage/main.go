@@ -12,7 +12,9 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/uselagoon/storage-calculator/internal/broker"
-	"github.com/uselagoon/storage-calculator/internal/helpers"
+
+	ns "github.com/uselagoon/machinery/utils/namespace"
+
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -162,7 +164,7 @@ func (c *Calculator) Calculate() {
 				})
 			}
 			// define the storage-calculator pod
-			podName := fmt.Sprintf("storage-calculator-%s", helpers.RandString(8))
+			podName := fmt.Sprintf("storage-calculator-%s", ns.RandString(8))
 			storagePod := &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      podName,
