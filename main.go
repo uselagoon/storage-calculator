@@ -72,8 +72,7 @@ func main() {
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
-	// flag.StringVar(&calculatorCron, "calculator-cron", "5 */12 * * *", "The cron definition for how often to run the storage-calculator.")
-	flag.StringVar(&calculatorCron, "calculator-cron", "*/5 * * * *", "The cron definition for how often to run the storage-calculator.")
+	flag.StringVar(&calculatorCron, "calculator-cron", "5 */12 * * *", "The cron definition for how often to run the storage-calculator.")
 	flag.StringVar(&ignoreRegex, "ignore-regex", "", "Regex pattern to match for which types of storage to ignore checking (eg 'solr|redis').")
 	flag.StringVar(&mqUser, "rabbitmq-username", "guest",
 		"The username of the rabbitmq user.")

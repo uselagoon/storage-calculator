@@ -25,6 +25,11 @@ import (
 	client "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// +kubebuilder:rbac:groups="",resources=namespaces,verbs=list;get;watch
+// +kubebuilder:rbac:groups="",resources=pods,verbs=list;get;watch;create;update
+// +kubebuilder:rbac:groups="",resources=pods/exec,verbs=create
+// +kubebuilder:rbac:groups="",resources=pods/log,verbs=list;get
+
 // Calculator handles collecting storage calculator information
 type Calculator struct {
 	Client          client.Client
