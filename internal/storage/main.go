@@ -25,10 +25,11 @@ import (
 	client "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// +kubebuilder:rbac:groups="",resources=namespaces,verbs=list;get;watch
-// +kubebuilder:rbac:groups="",resources=pods,verbs=list;get;watch;create;update
+// +kubebuilder:rbac:groups="",resources=namespaces,verbs=list;get;watch;update;patch
+// +kubebuilder:rbac:groups="",resources=pods,verbs=list;get;watch;create;update;delete
 // +kubebuilder:rbac:groups="",resources=pods/exec,verbs=create
 // +kubebuilder:rbac:groups="",resources=pods/log,verbs=list;get
+// +kubebuilder:rbac:groups="",resources=persistentvolumeclaims,verbs=list;get;watch
 
 // Calculator handles collecting storage calculator information
 type Calculator struct {
@@ -304,7 +305,7 @@ func (c *Calculator) Calculate() {
 			opLog.Info(fmt.Sprintf("volumes from storage-calculator pod %s/%s: %v", namespace.ObjectMeta.Name, podName, actionData))
 			// marshal and publish the result to actions-handler
 			ad, _ := json.Marshal(actionData)
-			if err := c.MQ.Publish("lagoon-actions2", ad); err != nil {
+			if err := c.MQ.Publish("lagoon-actions", ad); err != nil {
 				opLog.Error(err, "error publishing message to mq")
 				continue
 			}

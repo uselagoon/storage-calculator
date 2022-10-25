@@ -12,6 +12,16 @@ rules:
   verbs:
   - get
   - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - persistentvolumeclaims
+  verbs:
+  - get
+  - list
   - watch
 - apiGroups:
   - ""
@@ -19,6 +29,7 @@ rules:
   - pods
   verbs:
   - create
+  - delete
   - get
   - list
   - update
