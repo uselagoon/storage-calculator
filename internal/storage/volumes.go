@@ -107,9 +107,29 @@ func (c *Calculator) checkVolumesCreatePods(
 				// this pvc is a rwo, check which node the volume is on
 				// if there are multiple pvcs on this node they will get appended to the node map
 				// otherwise if they are spread across multiple nodes they will get up on those specific nodes
-				podNode, err := c.collectPodsForPVC(ctx, opLog, namespace, pvc.Labels["lagoon.sh/service-type"], pvc.ObjectMeta.Name)
+				podNode, err := c.getNodeForRWOPV(ctx, opLog, namespace, pvc.Labels["lagoon.sh/service-type"], pvc.ObjectMeta.Name)
 				if err != nil {
-					opLog.Error(err, "error checking for node")
+					if strings.Contains(err.Error(), "volume is not attached to any pods") {
+						opLog.Info(fmt.Sprintf("%v", err))
+						// append to the general namespace based volumes
+						volumes = append(volumes, corev1.Volume{
+							Name: pvc.ObjectMeta.Name,
+							VolumeSource: corev1.VolumeSource{
+								PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+									ClaimName: pvc.ObjectMeta.Name,
+									ReadOnly:  true,
+								},
+							},
+						})
+						volumeMounts = append(volumeMounts, corev1.VolumeMount{
+							Name:      pvc.ObjectMeta.Name,
+							MountPath: fmt.Sprintf("/storage/%s", pvc.ObjectMeta.Name),
+						})
+					} else {
+						// otherwise skip it as there could be other issues
+						opLog.Info(fmt.Sprintf("error checking volume, skipping: %v", err))
+					}
+					continue
 				}
 				if spn, ok := storagePodPerNode[podNode]; ok {
 					// if this is the first time we are seeing the node, add the first volume to it
@@ -152,25 +172,41 @@ func (c *Calculator) checkVolumesCreatePods(
 				}
 			} else {
 				// otherwise it has ReadWriteMany volume to append to the existing volumes
-				// this pod can be created on any node then
-				storagePodPerNode[namespace.ObjectMeta.Name] = storageCalculatorPod{
-					VolumeMounts: append(volumeMounts, corev1.VolumeMount{
-						Name:      pvc.ObjectMeta.Name,
-						MountPath: fmt.Sprintf("/storage/%s", pvc.ObjectMeta.Name),
-					}),
-					Volumes: append(volumes, corev1.Volume{
-						Name: pvc.ObjectMeta.Name,
-						VolumeSource: corev1.VolumeSource{
-							PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-								ClaimName: pvc.ObjectMeta.Name,
-								ReadOnly:  true,
-							},
+				// these can be created on any node
+				volumes = append(volumes, corev1.Volume{
+					Name: pvc.ObjectMeta.Name,
+					VolumeSource: corev1.VolumeSource{
+						PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+							ClaimName: pvc.ObjectMeta.Name,
+							ReadOnly:  true,
 						},
-					}),
-				}
+					},
+				})
+				volumeMounts = append(volumeMounts, corev1.VolumeMount{
+					Name:      pvc.ObjectMeta.Name,
+					MountPath: fmt.Sprintf("/storage/%s", pvc.ObjectMeta.Name),
+				})
 			}
 		}
 
+		// move all the general volumes to one of the pods that would be created on a specific node
+		// to reduce the number of storage-calculator pods being created
+		if len(storagePodPerNode) >= 1 {
+			for k := range storagePodPerNode {
+				// add the general volumes to an existing storagepod
+				vols := append(storagePodPerNode[k].Volumes, volumes...)
+				volMounts := append(storagePodPerNode[k].VolumeMounts, volumeMounts...)
+				storagePodPerNode[k] = storageCalculatorPod{
+					NodeName:     storagePodPerNode[k].NodeName,
+					Volumes:      vols,
+					VolumeMounts: volMounts,
+				}
+				// drop out, only needs to be on the first one that is in the slice if there are more than 1
+				break
+			}
+		}
+
+		// now create the required pods
 		checkedDatabase := false
 		for _, spn := range storagePodPerNode {
 			if err := c.createStoragePod(ctx, opLog, namespace, spn, environmentID, ignoreRegex, &checkedDatabase); err != nil {
@@ -181,7 +217,9 @@ func (c *Calculator) checkVolumesCreatePods(
 	return nil
 }
 
-func (c *Calculator) collectPodsForPVC(ctx context.Context, opLog logr.Logger, namespace corev1.Namespace, sType, cName string) (string, error) {
+// getNodeForRWOPV attempts to check which node a ReadWriteOnce PV is attached to, to make sure that a storage-calculator
+// pod starts on the same node to take advantage of same node access to the volume
+func (c *Calculator) getNodeForRWOPV(ctx context.Context, opLog logr.Logger, namespace corev1.Namespace, sType, cName string) (string, error) {
 	p1, _ := labels.NewRequirement("lagoon.sh/service-type", "in", []string{sType})
 	labelRequirements := []labels.Requirement{}
 	labelRequirements = append(labelRequirements, *p1)
@@ -205,5 +243,5 @@ func (c *Calculator) collectPodsForPVC(ctx context.Context, opLog logr.Logger, n
 			}
 		}
 	}
-	return "", fmt.Errorf("unable to find volume and node")
+	return "", fmt.Errorf("volume is not attached to any pods")
 }
