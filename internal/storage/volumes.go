@@ -204,6 +204,12 @@ func (c *Calculator) checkVolumesCreatePods(
 				// drop out, only needs to be on the first one that is in the slice if there are more than 1
 				break
 			}
+		} else {
+			// there aren't any rwo volumes, so just create a single pod for all general volumes
+			storagePodPerNode[namespace.ObjectMeta.Name] = storageCalculatorPod{
+				Volumes:      volumes,
+				VolumeMounts: volumeMounts,
+			}
 		}
 
 		// now create the required pods
