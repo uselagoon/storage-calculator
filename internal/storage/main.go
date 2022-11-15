@@ -37,6 +37,12 @@ type ActionEvent struct {
 	Type      string     `json:"type"`
 	EventType string     `json:"eventType"`
 	Data      ActionData `json:"data"`
+	Meta      MetaData   `json:"meta,omitempty"`
+}
+
+type MetaData struct {
+	Project     string `json:"project"`
+	Environment string `json:"environment"`
 }
 
 type ActionData struct {

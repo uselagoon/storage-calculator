@@ -69,6 +69,10 @@ func (c *Calculator) checkVolumesCreatePods(
 				Type:      "updateEnvironmentStorage",
 				EventType: "environmentStorage",
 				Data:      storData,
+				Meta: MetaData{
+					Project:     namespace.ObjectMeta.Labels["lagoon.sh/project"],
+					Environment: namespace.ObjectMeta.Labels["lagoon.sh/environment"],
+				},
 			}
 			// send the calculated storage result to the api @TODO
 			opLog.Info(fmt.Sprintf("no volumes in %s: %v", namespace.ObjectMeta.Name, actionData))
