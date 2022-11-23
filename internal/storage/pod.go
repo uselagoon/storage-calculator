@@ -213,6 +213,10 @@ func (c *Calculator) createStoragePod(
 		Type:      "updateEnvironmentStorage",
 		EventType: "environmentStorage",
 		Data:      storData,
+		Meta: MetaData{
+			Project:     namespace.ObjectMeta.Labels["lagoon.sh/project"],
+			Environment: namespace.ObjectMeta.Labels["lagoon.sh/environment"],
+		},
 	}
 	opLog.Info(fmt.Sprintf("volumes from storage-calculator pod %s/%s: %v", namespace.ObjectMeta.Name, podName, actionData))
 	// marshal and publish the result to actions-handler
