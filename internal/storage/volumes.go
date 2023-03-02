@@ -76,6 +76,10 @@ func (c *Calculator) checkVolumesCreatePods(
 			}
 			// send the calculated storage result to the api @TODO
 			opLog.Info(fmt.Sprintf("no volumes in %s: %v", namespace.ObjectMeta.Name, actionData))
+			// export metrics if enabled
+			if c.ExportMetrics {
+				actionData.ExportMetrics(c.PromStorage)
+			}
 			// marshal and publish the result to actions-handler
 			ad, _ := json.Marshal(actionData)
 			if err := c.MQ.Publish("lagoon-actions", ad); err != nil {

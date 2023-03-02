@@ -3,8 +3,10 @@ package storage
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	"github.com/go-logr/logr"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/uselagoon/storage-calculator/internal/broker"
 
 	corev1 "k8s.io/api/core/v1"
@@ -31,6 +33,8 @@ type Calculator struct {
 	IgnoreRegex     string
 	CalculatorImage string
 	Debug           bool
+	ExportMetrics   bool
+	PromStorage     *prometheus.GaugeVec
 }
 
 type ActionEvent struct {
@@ -38,6 +42,19 @@ type ActionEvent struct {
 	EventType string     `json:"eventType"`
 	Data      ActionData `json:"data"`
 	Meta      MetaData   `json:"meta,omitempty"`
+}
+
+func (ae *ActionEvent) ExportMetrics(promStorage *prometheus.GaugeVec) {
+	for _, claim := range ae.Data.Claims {
+		promStorage.With(prometheus.Labels{
+			"type":        ae.Type,
+			"eventtype":   ae.EventType,
+			"claimenv":    strconv.Itoa(claim.Environment),
+			"claimpvc":    claim.PersisteStorageClaim,
+			"project":     ae.Meta.Project,
+			"environment": ae.Meta.Environment,
+		}).Set(float64(claim.BytesUsed))
+	}
 }
 
 type MetaData struct {
