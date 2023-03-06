@@ -47,8 +47,6 @@ type ActionEvent struct {
 func (ae *ActionEvent) ExportMetrics(promStorage *prometheus.GaugeVec) {
 	for _, claim := range ae.Data.Claims {
 		promStorage.With(prometheus.Labels{
-			"type":        ae.Type,
-			"eventtype":   ae.EventType,
 			"claimenv":    strconv.Itoa(claim.Environment),
 			"claimpvc":    claim.PersisteStorageClaim,
 			"project":     ae.Meta.Project,

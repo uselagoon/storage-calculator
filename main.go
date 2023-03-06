@@ -52,7 +52,7 @@ var (
 			Name: "lagoon_storage_calculator_bytes",
 			Help: "The lagoon storage calculator bytes",
 		},
-		[]string{"type", "eventtype", "claimenv", "claimpvc", "project", "environment"},
+		[]string{"claimenv", "claimpvc", "project", "environment"},
 	)
 )
 
