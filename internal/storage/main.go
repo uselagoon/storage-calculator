@@ -91,7 +91,7 @@ func (c *Calculator) Calculate() {
 	})
 	namespaces := &corev1.NamespaceList{}
 	if err := c.Client.List(ctx, namespaces, listOption); err != nil {
-		opLog.Error(err, fmt.Sprintf("unable to get any namespaces"))
+		opLog.Error(err, "unable to get any namespaces")
 		return
 	}
 	for _, namespace := range namespaces.Items {
@@ -131,19 +131,4 @@ func (c *Calculator) hasRunningPod(
 		}
 		return storagePod.Status.Phase == "Running", nil
 	}
-}
-
-func unique(slice []string) []string {
-	// create a map with all the values as key
-	uniqMap := make(map[string]struct{})
-	for _, v := range slice {
-		uniqMap[v] = struct{}{}
-	}
-
-	// turn the map keys into a slice
-	uniqSlice := make([]string, 0, len(uniqMap))
-	for v := range uniqMap {
-		uniqSlice = append(uniqSlice, v)
-	}
-	return uniqSlice
 }
