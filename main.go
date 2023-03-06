@@ -1,5 +1,5 @@
 /*
-Copyright 2022.
+Copyright 2023.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -29,8 +29,8 @@ import (
 	"github.com/uselagoon/storage-calculator/internal/broker"
 	"github.com/uselagoon/storage-calculator/internal/storage"
 
+	"github.com/robfig/cron/v3"
 	"github.com/uselagoon/machinery/utils/variables"
-	"gopkg.in/robfig/cron.v2"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
 	"github.com/cheshir/go-mq"
