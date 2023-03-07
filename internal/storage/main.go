@@ -3,8 +3,10 @@ package storage
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	"github.com/go-logr/logr"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/uselagoon/storage-calculator/internal/broker"
 
 	corev1 "k8s.io/api/core/v1"
@@ -31,6 +33,8 @@ type Calculator struct {
 	IgnoreRegex     string
 	CalculatorImage string
 	Debug           bool
+	ExportMetrics   bool
+	PromStorage     *prometheus.GaugeVec
 }
 
 type ActionEvent struct {
@@ -38,6 +42,17 @@ type ActionEvent struct {
 	EventType string     `json:"eventType"`
 	Data      ActionData `json:"data"`
 	Meta      MetaData   `json:"meta,omitempty"`
+}
+
+func (ae *ActionEvent) ExportMetrics(promStorage *prometheus.GaugeVec) {
+	for _, claim := range ae.Data.Claims {
+		promStorage.With(prometheus.Labels{
+			"claimenv":    strconv.Itoa(claim.Environment),
+			"claimpvc":    claim.PersisteStorageClaim,
+			"project":     ae.Meta.Project,
+			"environment": ae.Meta.Environment,
+		}).Set(float64(claim.BytesUsed))
+	}
 }
 
 type MetaData struct {
@@ -76,7 +91,7 @@ func (c *Calculator) Calculate() {
 	})
 	namespaces := &corev1.NamespaceList{}
 	if err := c.Client.List(ctx, namespaces, listOption); err != nil {
-		opLog.Error(err, fmt.Sprintf("unable to get any namespaces"))
+		opLog.Error(err, "unable to get any namespaces")
 		return
 	}
 	for _, namespace := range namespaces.Items {
@@ -116,19 +131,4 @@ func (c *Calculator) hasRunningPod(
 		}
 		return storagePod.Status.Phase == "Running", nil
 	}
-}
-
-func unique(slice []string) []string {
-	// create a map with all the values as key
-	uniqMap := make(map[string]struct{})
-	for _, v := range slice {
-		uniqMap[v] = struct{}{}
-	}
-
-	// turn the map keys into a slice
-	uniqSlice := make([]string, 0, len(uniqMap))
-	for v := range uniqMap {
-		uniqSlice = append(uniqSlice, v)
-	}
-	return uniqSlice
 }

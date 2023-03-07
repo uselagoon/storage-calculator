@@ -2,6 +2,7 @@ package storage
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 
@@ -52,8 +53,10 @@ func execPod(
 		return "", "", fmt.Errorf("error while creating Executor: %v", err)
 	}
 
+	// We could use some timmeout here to prevent hanging
+	ctx := context.Background()
 	var stdout, stderr bytes.Buffer
-	err = exec.Stream(remotecommand.StreamOptions{
+	err = exec.StreamWithContext(ctx, remotecommand.StreamOptions{
 		Stdin:  stdin,
 		Stdout: &stdout,
 		Stderr: &stderr,

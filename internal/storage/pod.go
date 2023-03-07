@@ -219,6 +219,10 @@ func (c *Calculator) createStoragePod(
 		},
 	}
 	opLog.Info(fmt.Sprintf("volumes from storage-calculator pod %s/%s: %v", namespace.ObjectMeta.Name, podName, actionData))
+	// export metrics if enabled
+	if c.ExportMetrics {
+		actionData.ExportMetrics(c.PromStorage)
+	}
 	// marshal and publish the result to actions-handler
 	ad, _ := json.Marshal(actionData)
 	if err := c.MQ.Publish("lagoon-actions", ad); err != nil {

@@ -1,5 +1,5 @@
 /*
-Copyright 2022.
+Copyright 2023.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -25,11 +25,12 @@ import (
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/uselagoon/storage-calculator/internal/broker"
 	"github.com/uselagoon/storage-calculator/internal/storage"
 
+	"github.com/robfig/cron/v3"
 	"github.com/uselagoon/machinery/utils/variables"
-	"gopkg.in/robfig/cron.v2"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
 	"github.com/cheshir/go-mq"
@@ -39,12 +40,20 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"sigs.k8s.io/controller-runtime/pkg/metrics"
 	//+kubebuilder:scaffold:imports
 )
 
 var (
-	scheme   = runtime.NewScheme()
-	setupLog = ctrl.Log.WithName("setup")
+	scheme       = runtime.NewScheme()
+	setupLog     = ctrl.Log.WithName("setup")
+	prom_storage = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "lagoon_storage_calculator_bytes",
+			Help: "The lagoon storage calculator bytes",
+		},
+		[]string{"claimenv", "claimpvc", "project", "environment"},
+	)
 )
 
 func init() {
@@ -67,6 +76,7 @@ func main() {
 	var mqHost string
 	var mqWorkers int
 	var rabbitRetryInterval int
+	var exportPrometheusMetrics bool
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
@@ -88,6 +98,8 @@ func main() {
 		"The appID to use that will be sent with messages.")
 	flag.StringVar(&storageCalculatorImage, "storage-calculator-image", "imagecache.amazeeio.cloud/amazeeio/alpine-mysql-client",
 		"The image to use for storage-calculator pods.")
+	flag.BoolVar(&exportPrometheusMetrics, "prometheus-metrics", false, "Export prometheus metrics.")
+
 	opts := zap.Options{
 		Development: true,
 	}
@@ -172,6 +184,10 @@ func main() {
 		false,
 	)
 
+	if exportPrometheusMetrics {
+		metrics.Registry.MustRegister(prom_storage)
+	}
+
 	// setup the handler with the k8s and lagoon clients
 	storage := &storage.Calculator{
 		Client:          mgr.GetClient(),
@@ -180,6 +196,8 @@ func main() {
 		IgnoreRegex:     ignoreRegex,
 		CalculatorImage: storageCalculatorImage,
 		Debug:           false,
+		ExportMetrics:   exportPrometheusMetrics,
+		PromStorage:     prom_storage,
 	}
 	c := cron.New()
 	// add the cronjobs we need.
