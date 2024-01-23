@@ -3,7 +3,7 @@ package broker
 import (
 	"fmt"
 
-	"github.com/cheshir/go-mq"
+	mq "github.com/cheshir/go-mq/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
