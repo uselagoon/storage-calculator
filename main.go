@@ -33,7 +33,8 @@ import (
 	"github.com/uselagoon/machinery/utils/variables"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
-	"github.com/cheshir/go-mq"
+	// "github.com/cheshir/go-mq"
+	mq "github.com/cheshir/go-mq/v2"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
