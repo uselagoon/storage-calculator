@@ -64,12 +64,14 @@ func (c *Calculator) checkVolumesCreatePods(
 				Environment:          environmentID,
 				PersisteStorageClaim: "none",
 				BytesUsed:            0,
+				KiloBytesUsed:        0,
 			})
 			actionData := ActionEvent{
 				Type:      "updateEnvironmentStorage",
 				EventType: "environmentStorage",
 				Data:      storData,
 				Meta: MetaData{
+					Namespace:   namespace.ObjectMeta.Name,
 					Project:     namespace.ObjectMeta.Labels["lagoon.sh/project"],
 					Environment: namespace.ObjectMeta.Labels["lagoon.sh/environment"],
 				},

@@ -50,10 +50,10 @@ var (
 	setupLog     = ctrl.Log.WithName("setup")
 	prom_storage = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
-			Name: "lagoon_storage_calculator_bytes",
-			Help: "The lagoon storage calculator bytes",
+			Name: "lagoon_storage_calculator_kilobytes",
+			Help: "The lagoon storage calculator kilobytes bytes",
 		},
-		[]string{"claimenv", "claimpvc", "project", "environment"},
+		[]string{"claimenv", "claimpvc", "project", "environment", "lagoon_namespace"},
 	)
 )
 

@@ -47,17 +47,19 @@ type ActionEvent struct {
 func (ae *ActionEvent) ExportMetrics(promStorage *prometheus.GaugeVec) {
 	for _, claim := range ae.Data.Claims {
 		promStorage.With(prometheus.Labels{
-			"claimenv":    strconv.Itoa(claim.Environment),
-			"claimpvc":    claim.PersisteStorageClaim,
-			"project":     ae.Meta.Project,
-			"environment": ae.Meta.Environment,
-		}).Set(float64(claim.BytesUsed))
+			"claimenv":         strconv.Itoa(claim.Environment),
+			"claimpvc":         claim.PersisteStorageClaim,
+			"project":          ae.Meta.Project,
+			"environment":      ae.Meta.Environment,
+			"lagoon_namespace": ae.Meta.Namespace,
+		}).Set(float64(claim.KiloBytesUsed))
 	}
 }
 
 type MetaData struct {
 	Project     string `json:"project"`
 	Environment string `json:"environment"`
+	Namespace   string `json:"namespace"`
 }
 
 type ActionData struct {
@@ -67,7 +69,9 @@ type ActionData struct {
 type StorageClaim struct {
 	Environment          int    `json:"environment"`
 	PersisteStorageClaim string `json:"persistentStorageClaim"`
-	BytesUsed            int    `json:"bytesUsed"`
+	//it is actually kilobytes that du outputs, this should be deprecated
+	BytesUsed     int `json:"bytesUsed"`
+	KiloBytesUsed int `json:"kiloBytesUsed"`
 }
 
 // Calculate will run the storage-calculator job.
