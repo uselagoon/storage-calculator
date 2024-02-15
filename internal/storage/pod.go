@@ -162,6 +162,7 @@ func (c *Calculator) createStoragePod(
 			Environment:          environmentID,
 			PersisteStorageClaim: vol.Name,
 			BytesUsed:            pBytesInt,
+			KiloBytesUsed:        pBytesInt,
 		})
 	}
 
@@ -187,6 +188,7 @@ func (c *Calculator) createStoragePod(
 				Environment:          environmentID,
 				PersisteStorageClaim: "mariadb",
 				BytesUsed:            mBytesInt,
+				KiloBytesUsed:        mBytesInt,
 			})
 			// and attempt to patch the namespace with the labels
 			mergePatch, _ := json.Marshal(map[string]interface{}{
@@ -214,6 +216,7 @@ func (c *Calculator) createStoragePod(
 		EventType: "environmentStorage",
 		Data:      storData,
 		Meta: MetaData{
+			Namespace:   namespace.ObjectMeta.Name,
 			Project:     namespace.ObjectMeta.Labels["lagoon.sh/project"],
 			Environment: namespace.ObjectMeta.Labels["lagoon.sh/environment"],
 		},
