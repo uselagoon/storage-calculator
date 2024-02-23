@@ -161,8 +161,8 @@ func (c *Calculator) createStoragePod(
 		storData.Claims = append(storData.Claims, StorageClaim{
 			Environment:          environmentID,
 			PersisteStorageClaim: vol.Name,
-			BytesUsed:            pBytesInt,
-			KiloBytesUsed:        pBytesInt,
+			BytesUsed:            uint64(pBytesInt),
+			KiloBytesUsed:        uint64(pBytesInt),
 		})
 	}
 
@@ -187,8 +187,8 @@ func (c *Calculator) createStoragePod(
 			storData.Claims = append(storData.Claims, StorageClaim{
 				Environment:          environmentID,
 				PersisteStorageClaim: "mariadb",
-				BytesUsed:            mBytesInt,
-				KiloBytesUsed:        mBytesInt,
+				BytesUsed:            uint64(mBytesInt),
+				KiloBytesUsed:        uint64(mBytesInt),
 			})
 			// and attempt to patch the namespace with the labels
 			mergePatch, _ := json.Marshal(map[string]interface{}{

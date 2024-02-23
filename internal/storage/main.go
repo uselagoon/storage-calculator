@@ -70,8 +70,8 @@ type StorageClaim struct {
 	Environment          int    `json:"environment"`
 	PersisteStorageClaim string `json:"persistentStorageClaim"`
 	//it is actually kilobytes that du outputs, this should be deprecated
-	BytesUsed     int `json:"bytesUsed"`
-	KiloBytesUsed int `json:"kiloBytesUsed"`
+	BytesUsed     uint64 `json:"bytesUsed"`
+	KiloBytesUsed uint64 `json:"kiloBytesUsed"`
 }
 
 // Calculate will run the storage-calculator job.
