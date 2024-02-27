@@ -64,7 +64,7 @@ func (c *Calculator) checkVolumesCreatePods(
 				Environment:          environmentID,
 				PersisteStorageClaim: "none",
 				BytesUsed:            0,
-				KiloBytesUsed:        0,
+				KiBUsed:              0,
 			})
 			actionData := ActionEvent{
 				Type:      "updateEnvironmentStorage",
