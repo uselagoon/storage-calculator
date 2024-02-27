@@ -52,7 +52,7 @@ func (ae *ActionEvent) ExportMetrics(promStorage *prometheus.GaugeVec) {
 			"project":          ae.Meta.Project,
 			"environment":      ae.Meta.Environment,
 			"lagoon_namespace": ae.Meta.Namespace,
-		}).Set(float64(claim.KiloBytesUsed))
+		}).Set(float64(claim.KiBUsed))
 	}
 }
 
@@ -70,8 +70,8 @@ type StorageClaim struct {
 	Environment          int    `json:"environment"`
 	PersisteStorageClaim string `json:"persistentStorageClaim"`
 	//it is actually kilobytes that du outputs, this should be deprecated
-	BytesUsed     uint64 `json:"bytesUsed"`
-	KiloBytesUsed uint64 `json:"kiloBytesUsed"`
+	BytesUsed uint64 `json:"bytesUsed"`
+	KiBUsed   uint64 `json:"kibUsed"`
 }
 
 // Calculate will run the storage-calculator job.
