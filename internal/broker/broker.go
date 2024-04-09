@@ -40,6 +40,6 @@ func (h *MQ) Publish(queue string, message []byte) error {
 		opLog.Info(fmt.Sprintf("Failed to get async producer: %v", err))
 		return err
 	}
-	producer.Produce([]byte(fmt.Sprintf("%s", message)))
+	producer.Produce(message)
 	return nil
 }
