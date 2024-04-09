@@ -170,7 +170,6 @@ func main() {
 				Name:     "lagoon-actions",
 				Exchange: "lagoon-actions",
 				Options: mq.Options{
-					"app_id":        lagoonAppID,
 					"delivery_mode": "2",
 					"headers":       "",
 					"content_type":  "",
