@@ -14,6 +14,11 @@ spec:
         - "--metrics-bind-address=:8443"
         - "--leader-elect"
         - "--health-probe-bind-address=:8081"
-      ports:
+        - "--calculator-cron=* * * * *"
+        - "--prometheus-metrics=true"
+        ports:
         - containerPort: 8443
           name: https
+        env:
+        - name: RABBITMQ_HOSTNAME
+          value: '172.17.0.1:5672'

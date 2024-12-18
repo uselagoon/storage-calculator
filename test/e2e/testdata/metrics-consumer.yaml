@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: metrics-consumer
+  namespace: storage-calculator-system
+  labels:
+    app: metrics-consumer
+spec:
+  serviceAccountName: storage-calculator-controller-manager
+  containers:
+  - name: metrics-consumer
+    image: uselagoon/commons:latest
+    command: ["/bin/sh"]
+    args: ["-c", "sleep 3000"]
