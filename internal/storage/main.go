@@ -23,6 +23,8 @@ import (
 // +kubebuilder:rbac:groups="",resources=pods/exec,verbs=create
 // +kubebuilder:rbac:groups="",resources=pods/log,verbs=list;get
 // +kubebuilder:rbac:groups="",resources=persistentvolumeclaims,verbs=list;get;watch
+// +kubebuilder:rbac:groups="",resources=secrets,verbs=list;get;watch
+// +kubebuilder:rbac:groups="",resources=configmaps,verbs=list;get;watch
 
 // Calculator handles collecting storage calculator information
 type Calculator struct {

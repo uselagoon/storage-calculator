@@ -59,21 +59,52 @@ var _ = Describe("controller", Ordered, func() {
 		_, _ = utils.Run(cmd)
 
 		// remove the example namespace
-		cmd = exec.Command("kubectl", "delete", "ns", "example-project-develop")
+		cmd = exec.Command(utils.Kubectl(), "delete", "ns", "example-project-develop")
 		_, _ = utils.Run(cmd)
 	})
 
 	// comment to prevent cleaning up controller namespace and local services
 	AfterAll(func() {
+		By("dump controller logs")
+		cmd := exec.Command(utils.Kubectl(), "get",
+			"pods", "-l", "control-plane=controller-manager",
+			"-o", "go-template={{ range .items }}"+
+				"{{ if not .metadata.deletionTimestamp }}"+
+				"{{ .metadata.name }}"+
+				"{{ \"\\n\" }}{{ end }}{{ end }}",
+			"-n", namespace,
+		)
+		podOutput, err := utils.Run(cmd)
+		if err == nil {
+			podNames := utils.GetNonEmptyLines(string(podOutput))
+			controllerPodName := podNames[0]
+			cmd = exec.Command(utils.Kubectl(), "logs",
+				controllerPodName, "-c", "manager",
+				"-n", namespace,
+			)
+			podlogs, err := utils.Run(cmd)
+			if err == nil {
+				fmt.Fprintf(GinkgoWriter, "info: %s\n", podlogs)
+			}
+			// cmd = exec.Command(utils.Kubectl(), "logs",
+			// 	controllerPodName, "-c", "manager",
+			// 	"-n", namespace, "--previous",
+			// )
+			// podlogs, err = utils.Run(cmd)
+			// if err == nil {
+			// 	fmt.Fprintf(GinkgoWriter, "info: previous %s\n", podlogs)
+			// }
+		}
+
 		By("stop metrics consumer")
 		utils.StopMetricsConsumer()
 
 		// remove the example namespace
-		cmd := exec.Command(utils.Kubectl(), "delete", "ns", "example-project-main")
+		cmd = exec.Command(utils.Kubectl(), "delete", "ns", "example-project-main")
 		_, _ = utils.Run(cmd)
 
 		// remove the example namespace
-		cmd = exec.Command("kubectl", "delete", "ns", "example-project-develop")
+		cmd = exec.Command(utils.Kubectl(), "delete", "ns", "example-project-develop")
 		_, _ = utils.Run(cmd)
 
 		By("removing manager namespace")
@@ -159,7 +190,7 @@ var _ = Describe("controller", Ordered, func() {
 
 			By("creating second basic deployment")
 			cmd = exec.Command(
-				"kubectl",
+				utils.Kubectl(),
 				"apply",
 				"-f",
 				"test/e2e/testdata/example-env-2.yaml",
