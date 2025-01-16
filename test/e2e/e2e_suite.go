@@ -57,6 +57,10 @@ var _ = Describe("controller", Ordered, func() {
 		// remove the example namespace
 		cmd = exec.Command(utils.Kubectl(), "delete", "ns", "example-project-main")
 		_, _ = utils.Run(cmd)
+
+		// remove the example namespace
+		cmd = exec.Command("kubectl", "delete", "ns", "example-project-develop")
+		_, _ = utils.Run(cmd)
 	})
 
 	// comment to prevent cleaning up controller namespace and local services
@@ -66,6 +70,10 @@ var _ = Describe("controller", Ordered, func() {
 
 		// remove the example namespace
 		cmd := exec.Command(utils.Kubectl(), "delete", "ns", "example-project-main")
+		_, _ = utils.Run(cmd)
+
+		// remove the example namespace
+		cmd = exec.Command("kubectl", "delete", "ns", "example-project-develop")
 		_, _ = utils.Run(cmd)
 
 		By("removing manager namespace")
@@ -139,12 +147,22 @@ var _ = Describe("controller", Ordered, func() {
 
 			time.Sleep(30 * time.Second)
 
-			By("creating a basic deployment")
+			By("creating first basic deployment")
 			cmd = exec.Command(
 				utils.Kubectl(),
 				"apply",
 				"-f",
 				"test/e2e/testdata/example-env.yaml",
+			)
+			_, err = utils.Run(cmd)
+			ExpectWithOffset(1, err).NotTo(HaveOccurred())
+
+			By("creating second basic deployment")
+			cmd = exec.Command(
+				"kubectl",
+				"apply",
+				"-f",
+				"test/e2e/testdata/example-env-2.yaml",
 			)
 			_, err = utils.Run(cmd)
 			ExpectWithOffset(1, err).NotTo(HaveOccurred())
