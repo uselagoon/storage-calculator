@@ -65,11 +65,42 @@ var _ = Describe("controller", Ordered, func() {
 
 	// comment to prevent cleaning up controller namespace and local services
 	AfterAll(func() {
+		By("dump controller logs")
+		cmd := exec.Command("kubectl", "get",
+			"pods", "-l", "control-plane=controller-manager",
+			"-o", "go-template={{ range .items }}"+
+				"{{ if not .metadata.deletionTimestamp }}"+
+				"{{ .metadata.name }}"+
+				"{{ \"\\n\" }}{{ end }}{{ end }}",
+			"-n", namespace,
+		)
+		podOutput, err := utils.Run(cmd)
+		if err == nil {
+			podNames := utils.GetNonEmptyLines(string(podOutput))
+			controllerPodName := podNames[0]
+			cmd = exec.Command("kubectl", "logs",
+				controllerPodName, "-c", "manager",
+				"-n", namespace,
+			)
+			podlogs, err := utils.Run(cmd)
+			if err == nil {
+				fmt.Fprintf(GinkgoWriter, "info: %s\n", podlogs)
+			}
+			// cmd = exec.Command(utils.Kubectl(), "logs",
+			// 	controllerPodName, "-c", "manager",
+			// 	"-n", namespace, "--previous",
+			// )
+			// podlogs, err = utils.Run(cmd)
+			// if err == nil {
+			// 	fmt.Fprintf(GinkgoWriter, "info: previous %s\n", podlogs)
+			// }
+		}
+
 		By("stop metrics consumer")
 		utils.StopMetricsConsumer()
 
 		// remove the example namespace
-		cmd := exec.Command("kubectl", "delete", "ns", "example-project-main")
+		cmd = exec.Command("kubectl", "delete", "ns", "example-project-main")
 		_, _ = utils.Run(cmd)
 
 		// remove the example namespace
