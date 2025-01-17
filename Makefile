@@ -1,3 +1,4 @@
+SHELL := /bin/bash
 
 # Image URL to use all building/pushing image targets
 IMG ?= controller:latest
@@ -17,6 +18,67 @@ GOBIN=$(shell go env GOBIN)
 endif
 
 KIND_CLUSTER ?= storage-calculator
+KIND_NETWORK ?= storage-controller
+
+KIND_VERSION = v0.25.0
+KUBECTL_VERSION := v1.31.0
+HELM_VERSION := v3.16.1
+GOJQ_VERSION = v0.12.16
+KUSTOMIZE_VERSION := v5.4.3
+
+KUBECTL = $(realpath ./local-dev/kubectl)
+KIND = $(realpath ./local-dev/kind)
+KUSTOMIZE = $(realpath ./local-dev/kustomize)
+
+ARCH := $(shell uname | tr '[:upper:]' '[:lower:]')
+
+
+.PHONY: local-dev/kind
+local-dev/kind:
+ifeq ($(KIND_VERSION), $(shell kind version 2>/dev/null | sed -nE 's/kind (v[0-9.]+).*/\1/p'))
+	$(info linking local kind version $(KIND_VERSION))
+	ln -sf $(shell command -v kind) ./local-dev/kind
+else
+ifneq ($(KIND_VERSION), $(shell ./local-dev/kind version 2>/dev/null | sed -nE 's/kind (v[0-9.]+).*/\1/p'))
+	$(info downloading kind version $(KIND_VERSION) for $(ARCH))
+	mkdir -p local-dev
+	rm local-dev/kind || true
+	curl -sSLo local-dev/kind https://kind.sigs.k8s.io/dl/$(KIND_VERSION)/kind-$(ARCH)-amd64
+	chmod a+x local-dev/kind
+endif
+endif
+
+.PHONY: local-dev/kustomize
+local-dev/kustomize:
+ifeq ($(KUSTOMIZE_VERSION), $(shell kustomize version 2>/dev/null | sed -nE 's/(v[0-9.]+).*/\1/p'))
+	$(info linking local kustomize version $(KUSTOMIZE_VERSION))
+	ln -sf $(shell command -v kind) ./local-dev/kind
+else
+ifneq ($(KUSTOMIZE_VERSION), $(shell ./local-dev/kustomize version 2>/dev/null | sed -nE 's/(v[0-9.]+).*/\1/p'))
+	$(info downloading kustomize version $(KUSTOMIZE_VERSION) for $(ARCH))
+	rm local-dev/kustomize || true
+	curl -sSL https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2F$(KUSTOMIZE_VERSION)/kustomize_$(KUSTOMIZE_VERSION)_$(ARCH)_amd64.tar.gz | tar -xzC local-dev
+	chmod a+x local-dev/kustomize
+endif
+endif
+
+.PHONY: local-dev/kubectl
+local-dev/kubectl:
+ifeq ($(KUBECTL_VERSION), $(shell kubectl version --client 2>/dev/null | grep Client | sed -E 's/Client Version: (v[0-9.]+).*/\1/'))
+	$(info linking local kubectl version $(KUBECTL_VERSION))
+	ln -sf $(shell command -v kubectl) ./local-dev/kubectl
+else
+ifneq ($(KUBECTL_VERSION), $(shell ./local-dev/kubectl version --client 2>/dev/null | grep Client | sed -E 's/Client Version: (v[0-9.]+).*/\1/'))
+	$(info downloading kubectl version $(KUBECTL_VERSION) for $(ARCH))
+	rm local-dev/kubectl || true
+	curl -sSLo local-dev/kubectl https://storage.googleapis.com/kubernetes-release/release/$(KUBECTL_VERSION)/bin/$(ARCH)/amd64/kubectl
+	chmod a+x local-dev/kubectl
+endif
+endif
+
+.PHONY: local-dev/tools
+local-dev/tools: local-dev/kind local-dev/kustomize local-dev/kubectl
+
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.29.0
 ENVTEST ?= $(LOCALBIN)/setup-envtest-$(ENVTEST_VERSION)
@@ -50,7 +112,7 @@ help: ## Display this help.
 ##@ Development
 
 .PHONY: manifests
-manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
+manifests: controller-gen local-dev/tools ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 	$(CONTROLLER_GEN) rbac:roleName=manager-role webhook paths="./..."
 
 .PHONY: generate
@@ -94,19 +156,19 @@ ifndef ignore-not-found
 endif
 
 .PHONY: install
-install: manifests kustomize ## Install CRDs into the K8s cluster specified in ~/.kube/config.
+install: manifests local-dev/kustomize ## Install CRDs into the K8s cluster specified in ~/.kube/config.
 
 .PHONY: uninstall
-uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
+uninstall: manifests local-dev/kustomize ## Uninstall CRDs from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
 
 .PHONY: deploy
-deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
+deploy: manifests local-dev/kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
 	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
-	$(KUSTOMIZE) build config/default | kubectl apply -f -
+	$(KUSTOMIZE) build config/default | $(KUBECTL) apply -f -
 
 .PHONY: undeploy
 undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
-	$(KUSTOMIZE) build config/default | kubectl delete --ignore-not-found=$(ignore-not-found) -f -
+	$(KUSTOMIZE) build config/default | $(KUBECTL) delete --ignore-not-found=$(ignore-not-found) -f -
 
 .PHONY: envtest
 envtest: $(ENVTEST) ## Download setup-envtest locally if necessary.
@@ -114,9 +176,10 @@ $(ENVTEST): $(LOCALBIN)
 	$(call go-install-tool,$(ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest,$(ENVTEST_VERSION))
 
 .PHONY: create-kind-cluster
-create-kind-cluster:
-	docker network inspect $(KIND_CLUSTER) >/dev/null || docker network create $(KIND_CLUSTER) \
- 		&& kind create cluster --wait=60s --name=$(KIND_CLUSTER)
+create-kind-cluster: local-dev/tools 
+	docker network inspect $(KIND_NETWORK) >/dev/null || docker network create $(KIND_NETWORK) \
+		&& export KIND_EXPERIMENTAL_DOCKER_NETWORK=$(KIND_NETWORK) \
+ 		&& $(KIND) create cluster --wait=60s --name=$(KIND_CLUSTER)
 
 # Create a kind cluster locally and run the test e2e test suite against it
 .PHONY: kind/test-e2e  # Run the e2e tests against a Kind k8s instance that is spun up locally
@@ -124,30 +187,32 @@ kind/test-e2e: create-kind-cluster kind/re-test-e2e
 	
 .PHONY: local-kind/test-e2e  # Run the e2e tests against a Kind k8s instance that is spun up locally
 kind/re-test-e2e:
+	export KIND_PATH=$(KIND) && \
+	export KUBECTL_PATH=$(KUBECTL) && \
 	export KIND_CLUSTER=$(KIND_CLUSTER) && \
-	kind export kubeconfig --name=$(KIND_CLUSTER) && \
+	$(KIND) export kubeconfig --name=$(KIND_CLUSTER) && \
 	$(MAKE) test-e2e
 
 .PHONY: clean
 kind/clean:
-	kind delete cluster --name=$(KIND_CLUSTER) && docker network rm $(KIND_CLUSTER)
+	$(KIND) delete cluster --name=$(KIND_CLUSTER) && docker network rm $(KIND_NETWORK)
 
 # Utilize Kind or modify the e2e tests to load the image locally, enabling compatibility with other vendors.
 .PHONY: test-e2e  # Run the e2e tests against a Kind k8s instance that is spun up inside github action.
-test-e2e:
+test-e2e: local-dev/tools 
 	go test ./test/e2e/ -v -ginkgo.v
 
 .PHONY: kind/set-kubeconfig
 kind/set-kubeconfig:
 	export KIND_CLUSTER=$(KIND_CLUSTER) && \
-	kind export kubeconfig --name=$(KIND_CLUSTER)
+	$(KIND) export kubeconfig --name=$(KIND_CLUSTER)
 
 .PHONY: kind/logs-controller
 kind/logs-controller:
 	export KIND_CLUSTER=$(KIND_CLUSTER) && \
-	kind export kubeconfig --name=$(KIND_CLUSTER) && \
-	kubectl -n storage-calculator-system logs -f \
-		$$(kubectl -n storage-calculator-system  get pod -l control-plane=controller-manager -o jsonpath="{.items[0].metadata.name}") \
+	$(KIND) export kubeconfig --name=$(KIND_CLUSTER) && \
+	$(KUBECTL) -n storage-calculator-system logs -f \
+		$$($(KUBECTL) -n storage-calculator-system  get pod -l control-plane=controller-manager -o jsonpath="{.items[0].metadata.name}") \
 		-c manager
 ##@ Build Dependencies
 
@@ -155,19 +220,6 @@ kind/logs-controller:
 LOCALBIN ?= $(shell pwd)/bin
 $(LOCALBIN):
 	mkdir -p $(LOCALBIN)
-
-## Tool Binaries
-KUSTOMIZE ?= $(LOCALBIN)/kustomize
-
-## Tool Versions
-KUSTOMIZE_VERSION ?= v3.8.7
-CONTROLLER_TOOLS_VERSION ?= v0.9.2
-
-KUSTOMIZE_INSTALL_SCRIPT ?= "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"
-.PHONY: kustomize
-kustomize: $(KUSTOMIZE) ## Download kustomize locally if necessary.
-$(KUSTOMIZE): $(LOCALBIN)
-	test -s $(LOCALBIN)/kustomize || { curl -s $(KUSTOMIZE_INSTALL_SCRIPT) | bash -s -- $(subst v,,$(KUSTOMIZE_VERSION)) $(LOCALBIN); }
 
 # find or download controller-gen
 # download controller-gen if necessary

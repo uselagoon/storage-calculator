@@ -48,14 +48,14 @@ var _ = Describe("controller", Ordered, func() {
 		Expect(utils.StartLocalServices()).To(Succeed())
 
 		By("creating manager namespace")
-		cmd := exec.Command("kubectl", "create", "ns", namespace)
+		cmd := exec.Command(utils.Kubectl(), "create", "ns", namespace)
 		_, _ = utils.Run(cmd)
 
 		// when running a re-test, it is best to make sure the old namespace doesn't exist
 		By("removing existing test resources")
 
 		// remove the example namespace
-		cmd = exec.Command("kubectl", "delete", "ns", "example-project-main")
+		cmd = exec.Command(utils.Kubectl(), "delete", "ns", "example-project-main")
 		_, _ = utils.Run(cmd)
 	})
 
@@ -65,11 +65,11 @@ var _ = Describe("controller", Ordered, func() {
 		utils.StopMetricsConsumer()
 
 		// remove the example namespace
-		cmd := exec.Command("kubectl", "delete", "ns", "example-project-main")
+		cmd := exec.Command(utils.Kubectl(), "delete", "ns", "example-project-main")
 		_, _ = utils.Run(cmd)
 
 		By("removing manager namespace")
-		cmd = exec.Command("kubectl", "delete", "ns", namespace)
+		cmd = exec.Command(utils.Kubectl(), "delete", "ns", namespace)
 		_, _ = utils.Run(cmd)
 
 		By("stop local services")
@@ -103,7 +103,7 @@ var _ = Describe("controller", Ordered, func() {
 			verifyControllerUp := func() error {
 				// Get pod name
 
-				cmd = exec.Command("kubectl", "get",
+				cmd = exec.Command(utils.Kubectl(), "get",
 					"pods", "-l", "control-plane=controller-manager",
 					"-o", "go-template={{ range .items }}"+
 						"{{ if not .metadata.deletionTimestamp }}"+
@@ -121,7 +121,7 @@ var _ = Describe("controller", Ordered, func() {
 				controllerPodName = podNames[0]
 				ExpectWithOffset(2, controllerPodName).Should(ContainSubstring("controller-manager"))
 
-				cmd = exec.Command("kubectl", "get",
+				cmd = exec.Command(utils.Kubectl(), "get",
 					"pods", controllerPodName, "-o", "jsonpath={.status.phase}",
 					"-n", namespace,
 				)
@@ -141,7 +141,7 @@ var _ = Describe("controller", Ordered, func() {
 
 			By("creating a basic deployment")
 			cmd = exec.Command(
-				"kubectl",
+				utils.Kubectl(),
 				"apply",
 				"-f",
 				"test/e2e/testdata/example-env.yaml",
@@ -151,7 +151,7 @@ var _ = Describe("controller", Ordered, func() {
 
 			By("wait for storage calculator to run")
 			verifyStorageCalculatorRuns := func() error {
-				cmd = exec.Command("kubectl", "logs",
+				cmd = exec.Command(utils.Kubectl(), "logs",
 					controllerPodName, "-c", "manager",
 					"-n", namespace,
 				)
