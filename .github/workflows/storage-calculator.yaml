@@ -56,4 +56,4 @@ jobs:
 
     - name: Run test-e2e
       run: |
-        make test-e2e
+        make test-e2e KIND_NETWORK=kind
