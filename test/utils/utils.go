@@ -25,13 +25,28 @@ import (
 	"github.com/onsi/ginkgo/v2"
 )
 
-const (
-	k8upv1alpha1crd = "https://github.com/k8up-io/k8up/releases/download/v1.2.0/k8up-crd.yaml"
-	k8upv1crd       = "https://github.com/k8up-io/k8up/releases/download/k8up-4.8.0/k8up-crd.yaml"
-)
-
 func warnError(err error) {
 	fmt.Fprintf(ginkgo.GinkgoWriter, "warning: %v\n", err)
+}
+
+var kubectlPath, kindPath string
+
+func init() {
+	if v, ok := os.LookupEnv("KIND_PATH"); ok {
+		kindPath = v
+	} else {
+		kindPath = "kind"
+	}
+	if v, ok := os.LookupEnv("KUBECTL_PATH"); ok {
+		kubectlPath = v
+	} else {
+		kubectlPath = "kubectl"
+	}
+	fmt.Println(kubectlPath, kindPath)
+}
+
+func Kubectl() string {
+	return kubectlPath
 }
 
 // StartLocalServices starts local services
@@ -51,26 +66,26 @@ func StopLocalServices() {
 
 // InstallBulkStorage installs the bulk storage class.
 func InstallBulkStorage() error {
-	cmd := exec.Command("kubectl", "apply", "-f", "test/e2e/testdata/bulk-storageclass.yaml")
+	cmd := exec.Command(kubectlPath, "apply", "-f", "test/e2e/testdata/bulk-storageclass.yaml")
 	_, err := Run(cmd)
 	return err
 }
 
 func StartMetricsConsumer() error {
-	cmd := exec.Command("kubectl", "apply", "-f", "test/e2e/testdata/metrics-consumer.yaml")
+	cmd := exec.Command(kubectlPath, "apply", "-f", "test/e2e/testdata/metrics-consumer.yaml")
 	_, err := Run(cmd)
 	return err
 }
 
 func StopMetricsConsumer() {
-	cmd := exec.Command("kubectl", "delete", "-f", "test/e2e/testdata/metrics-consumer.yaml")
+	cmd := exec.Command(kubectlPath, "delete", "-f", "test/e2e/testdata/metrics-consumer.yaml")
 	if _, err := Run(cmd); err != nil {
 		warnError(err)
 	}
 }
 
 func RunCommonsCommand(ns, runCmd string) ([]byte, error) {
-	cmd := exec.Command("kubectl", "-n", ns, "exec", "metrics-consumer", "--", "sh", "-c", runCmd)
+	cmd := exec.Command(kubectlPath, "-n", ns, "exec", "metrics-consumer", "--", "sh", "-c", runCmd)
 	return Run(cmd)
 }
 
@@ -101,7 +116,7 @@ func LoadImageToKindClusterWithName(name string) error {
 		cluster = v
 	}
 	kindOptions := []string{"load", "docker-image", name, "--name", cluster}
-	cmd := exec.Command("kind", kindOptions...)
+	cmd := exec.Command(kindPath, kindOptions...)
 	_, err := Run(cmd)
 	return err
 }
