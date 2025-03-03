@@ -16,9 +16,28 @@ spec:
         - "--health-probe-bind-address=:8081"
         - "--calculator-cron=* * * * *"
         - "--prometheus-metrics=true"
+        - "--rabbitmq-tls=true"
+        - "--rabbitmq-verify=true"
+        - "--rabbitmq-cacert=/ca.crt"
+        - "--rabbitmq-clientcert=/tls.crt"
+        - "--rabbitmq-clientkey=/tls.key"
+        volumeMounts:
+        - mountPath: /ca.crt
+          name: lagoon-broker-tls
+          subPath: ca.crt
+        - mountPath: /tls.crt
+          name: lagoon-broker-tls
+          subPath: tls.crt
+        - mountPath: /tls.key
+          name: lagoon-broker-tls
+          subPath: tls.key
         ports:
         - containerPort: 8443
           name: https
         env:
         - name: RABBITMQ_HOSTNAME
-          value: '172.17.0.1:5672'
+          value: '172.17.0.1:5671'
+      volumes:
+      - name: lagoon-broker-tls
+        secret:
+          secretName: lagoon-broker-tls

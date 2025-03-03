@@ -51,7 +51,7 @@ func Kubectl() string {
 
 // StartLocalServices starts local services
 func StartLocalServices() error {
-	cmd := exec.Command("docker", "compose", "up", "-d")
+	cmd := exec.Command("docker", "compose", "up", "-d", "--build")
 	_, err := Run(cmd)
 	return err
 }
