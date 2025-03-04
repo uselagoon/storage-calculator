@@ -55,19 +55,66 @@ func (c *Calculator) createStoragePod(
 					Image:        c.CalculatorImage,
 					Command:      []string{"sh", "-c", "while sleep 3600; do :; done"},
 					VolumeMounts: spn.VolumeMounts,
-					EnvFrom: []corev1.EnvFromSource{
-						{
-							ConfigMapRef: &corev1.ConfigMapEnvSource{
-								LocalObjectReference: corev1.LocalObjectReference{
-									Name: "lagoon-env",
-								},
-							},
-						},
-					},
 				},
 			},
 			Volumes: spn.Volumes,
 		},
+	}
+
+	// check if the lagoon-env secret(s) exist
+	lagoonEnvSecret := &corev1.Secret{}
+	err := c.Client.Get(ctx, types.NamespacedName{
+		Namespace: namespace.Name,
+		Name:      "lagoon-env",
+	}, lagoonEnvSecret)
+	if err != nil {
+		// fall back to check if the lagoon-env configmap exists
+		lagoonEnvConfigMap := &corev1.ConfigMap{}
+		err := c.Client.Get(ctx, types.NamespacedName{
+			Namespace: namespace.Name,
+			Name:      "lagoon-env",
+		}, lagoonEnvConfigMap)
+		if err != nil {
+			// just log the warning
+			opLog.Info(fmt.Sprintf("no lagoon-env secret or configmap %s/%s", namespace.ObjectMeta.Name, podName))
+		} else {
+			// add the lagoon-env configmap to the storage-calculator pod
+			storagePod.Spec.Containers[0].EnvFrom = append(storagePod.Spec.Containers[0].EnvFrom, corev1.EnvFromSource{
+				ConfigMapRef: &corev1.ConfigMapEnvSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: "lagoon-env",
+					},
+				},
+			})
+		}
+	} else {
+		// else check the platform env secret exists
+		lagoonPlatformEnvSecret := &corev1.Secret{}
+		err := c.Client.Get(ctx, types.NamespacedName{
+			Namespace: namespace.Name,
+			Name:      "lagoon-platform-env",
+		}, lagoonPlatformEnvSecret)
+		if err != nil {
+			// just log the warning
+			opLog.Info(fmt.Sprintf("no lagoon-platform-env secret %s/%s", namespace.ObjectMeta.Name, podName))
+		} else {
+			// add the lagoon-platform-env secret to the storage-calculator pod
+			storagePod.Spec.Containers[0].EnvFrom = append(storagePod.Spec.Containers[0].EnvFrom, corev1.EnvFromSource{
+				SecretRef: &corev1.SecretEnvSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: "lagoon-platform-env",
+					},
+				},
+			})
+		}
+		// add the lagoon-env secret to the storage-calculator pod
+		storagePod.Spec.Containers[0].EnvFrom = append(storagePod.Spec.Containers[0].EnvFrom, corev1.EnvFromSource{
+			SecretRef: &corev1.SecretEnvSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: "lagoon-env",
+				},
+			},
+		})
 	}
 
 	// if the storage pod has to be assigned to a specific node due to ReadWriteOnce, set the nodename here
@@ -120,7 +167,7 @@ func (c *Calculator) createStoragePod(
 
 	// exec in and check the volumes are mounted firstly
 	var stdin io.Reader
-	_, _, err := execPod(
+	_, _, err = execPod(
 		podName,
 		namespace.ObjectMeta.Name,
 		[]string{"/bin/sh", "-c", "ls /storage"},

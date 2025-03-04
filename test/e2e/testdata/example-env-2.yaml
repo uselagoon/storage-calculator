@@ -1,0 +1,197 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: example-project-develop
+  labels:
+    lagoon.sh/environmentType: production
+    lagoon.sh/storageCalculatorEnabled: 'true'
+    lagoon.sh/environmentId: '123'
+    lagoon.sh/environment: 'develop'
+    lagoon.sh/project: example-project
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  annotations:
+    lagoon.sh/branch: develop
+    lagoon.sh/version: v2.7.x
+  creationTimestamp: null
+  labels:
+    app.kubernetes.io/instance: basic
+    app.kubernetes.io/managed-by: build-deploy-tool
+    app.kubernetes.io/name: basic-persistent
+    lagoon.sh/buildType: branch
+    lagoon.sh/environment: develop
+    lagoon.sh/environmentType: production
+    lagoon.sh/project: example-project
+    lagoon.sh/service: basic
+    lagoon.sh/service-type: basic-persistent
+    lagoon.sh/template: basic-persistent-0.1.0
+  name: basic-data
+  namespace: example-project-develop
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 100Mi
+status: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    lagoon.sh/branch: develop
+    lagoon.sh/version: v2.7.x
+  creationTimestamp: null
+  labels:
+    app.kubernetes.io/instance: basic
+    app.kubernetes.io/managed-by: build-deploy-tool
+    app.kubernetes.io/name: basic-persistent
+    lagoon.sh/buildType: branch
+    lagoon.sh/environment: develop
+    lagoon.sh/environmentType: production
+    lagoon.sh/project: example-project
+    lagoon.sh/service: basic
+    lagoon.sh/service-type: basic-persistent
+    lagoon.sh/template: basic-persistent-0.1.0
+  name: basic
+  namespace: example-project-develop
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: basic
+      app.kubernetes.io/name: basic-persistent
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        lagoon.sh/branch: develop
+        lagoon.sh/configMapSha: abcdefg1234567890
+        lagoon.sh/version: v2.7.x
+      creationTimestamp: null
+      labels:
+        app.kubernetes.io/instance: basic
+        app.kubernetes.io/managed-by: build-deploy-tool
+        app.kubernetes.io/name: basic-persistent
+        lagoon.sh/buildType: branch
+        lagoon.sh/environment: develop
+        lagoon.sh/environmentType: production
+        lagoon.sh/project: example-project
+        lagoon.sh/service: basic
+        lagoon.sh/service-type: basic-persistent
+        lagoon.sh/template: basic-persistent-0.1.0
+    spec:
+      containers:
+      - env:
+        - name: LAGOON_GIT_SHA
+          value: abcdefg123456
+        - name: CRONJOBS
+        - name: SERVICE_NAME
+          value: basic
+        image: uselagoon/nginx:latest
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          initialDelaySeconds: 60
+          tcpSocket:
+            port: 8080
+          timeoutSeconds: 10
+        name: basic
+        ports:
+        - containerPort: 8080
+          name: tcp-8080
+          protocol: TCP
+        readinessProbe:
+          initialDelaySeconds: 1
+          tcpSocket:
+            port: 8080
+          timeoutSeconds: 1
+        resources:
+          requests:
+            cpu: 10m
+            memory: 10Mi
+        securityContext: {}
+        volumeMounts:
+        - mountPath: /var/lib/basic
+          name: basic-data
+      enableServiceLinks: false
+      volumes:
+      - name: basic-data
+        persistentVolumeClaim:
+          claimName: basic-data
+status: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    lagoon.sh/branch: develop
+    lagoon.sh/version: v2.7.x
+  creationTimestamp: null
+  labels:
+    app.kubernetes.io/instance: basic
+    app.kubernetes.io/managed-by: build-deploy-tool
+    app.kubernetes.io/name: basic-persistent
+    lagoon.sh/buildType: branch
+    lagoon.sh/environment: develop
+    lagoon.sh/environmentType: production
+    lagoon.sh/project: example-project
+    lagoon.sh/service: basic
+    lagoon.sh/service-type: basic-persistent
+    lagoon.sh/template: basic-persistent-0.1.0
+  name: basic
+  namespace: example-project-develop
+spec:
+  ports:
+  - name: tcp-8080
+    port: 8080
+    protocol: TCP
+    targetPort: tcp-8080
+  selector:
+    app.kubernetes.io/instance: basic
+    app.kubernetes.io/name: basic-persistent
+status:
+  loadBalancer: {}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  annotations:
+    lagoon.sh/branch: environment-name
+  creationTimestamp: null
+  labels:
+    app.kubernetes.io/instance: lagoon-env
+    app.kubernetes.io/managed-by: build-deploy-tool
+    app.kubernetes.io/name: lagoon-env
+    lagoon.sh/buildType: branch
+    lagoon.sh/environment: name
+    lagoon.sh/environmentType: production
+    lagoon.sh/project: example-project
+    lagoon.sh/template: lagoon-env-0.1.0
+  name: lagoon-platform-env
+  namespace: example-project-develop
+stringData:
+  A_SPECIAL_VARIABLE: myspecialvariable
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  annotations:
+    lagoon.sh/branch: environment-name
+  creationTimestamp: null
+  labels:
+    app.kubernetes.io/instance: lagoon-env
+    app.kubernetes.io/managed-by: build-deploy-tool
+    app.kubernetes.io/name: lagoon-env
+    lagoon.sh/buildType: branch
+    lagoon.sh/environment: name
+    lagoon.sh/environmentType: production
+    lagoon.sh/project: example-project
+    lagoon.sh/template: lagoon-env-0.1.0
+  name: lagoon-env
+  namespace: example-project-develop
+stringData:
+  MY_SPECIAL_VARIABLE: myspecialvariable
+  MY_SPECIAL_VARIABLE1: myspecialvariable1
+  MY_SPECIAL_VARIABLE2: myspecialvariable2
