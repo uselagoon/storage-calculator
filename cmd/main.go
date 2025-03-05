@@ -80,6 +80,11 @@ func main() {
 	var mqUser string
 	var mqPass string
 	var mqHost string
+	var mqTLS bool
+	var mqVerify bool
+	var mqCACert string
+	var mqClientCert string
+	var mqClientKey string
 	var mqWorkers int
 	var rabbitRetryInterval int
 	var exportPrometheusMetrics bool
@@ -101,6 +106,16 @@ func main() {
 		"The password for the rabbitmq user.")
 	flag.StringVar(&mqHost, "rabbitmq-hostname", "localhost:5672",
 		"The hostname:port for the rabbitmq host.")
+	flag.BoolVar(&mqTLS, "rabbitmq-tls", false,
+		"To use amqps instead of amqp.")
+	flag.BoolVar(&mqVerify, "rabbitmq-verify", false,
+		"To verify rabbitmq peer connection.")
+	flag.StringVar(&mqCACert, "rabbitmq-cacert", "",
+		"The path to the ca certificate")
+	flag.StringVar(&mqClientCert, "rabbitmq-clientcert", "",
+		"The path to the client certificate")
+	flag.StringVar(&mqClientKey, "rabbitmq-clientkey", "",
+		"The path to the client key")
 	flag.IntVar(&mqWorkers, "rabbitmq-queue-workers", 1,
 		"The number of workers to start with.")
 	flag.IntVar(&rabbitRetryInterval, "rabbitmq-retry-interval", 30,
@@ -122,6 +137,11 @@ func main() {
 	mqUser = variables.GetEnv("RABBITMQ_USERNAME", mqUser)
 	mqPass = variables.GetEnv("RABBITMQ_PASSWORD", mqPass)
 	mqHost = variables.GetEnv("RABBITMQ_HOSTNAME", mqHost)
+	mqTLS = variables.GetEnvBool("RABBITMQ_TLS", mqTLS)
+	mqCACert = variables.GetEnv("RABBITMQ_CACERT", mqCACert)
+	mqClientCert = variables.GetEnv("RABBITMQ_CLIENTCERT", mqClientCert)
+	mqClientKey = variables.GetEnv("RABBITMQ_CLIENTKEY", mqClientKey)
+	mqVerify = variables.GetEnvBool("RABBITMQ_VERIFY", mqVerify)
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
@@ -168,6 +188,23 @@ func main() {
 		os.Exit(1)
 	}
 
+	brokerDSN := fmt.Sprintf("amqp://%s:%s@%s", mqUser, mqPass, mqHost)
+	if mqTLS {
+		verify := "verify_none"
+		if mqVerify {
+			verify = "verify_peer"
+		}
+		brokerDSN = fmt.Sprintf("amqps://%s:%s@%s?verify=%s", mqUser, mqPass, mqHost, verify)
+		if mqCACert != "" {
+			brokerDSN = fmt.Sprintf("%s&cacertfile=%s", brokerDSN, mqCACert)
+		}
+		if mqClientCert != "" {
+			brokerDSN = fmt.Sprintf("%s&certfile=%s", brokerDSN, mqClientCert)
+		}
+		if mqClientKey != "" {
+			brokerDSN = fmt.Sprintf("%s&keyfile=%s", brokerDSN, mqClientKey)
+		}
+	}
 	config := mq.Config{
 		ReconnectDelay: time.Duration(rabbitRetryInterval) * time.Second,
 		Exchanges: mq.Exchanges{
@@ -205,7 +242,7 @@ func main() {
 				},
 			},
 		},
-		DSN: fmt.Sprintf("amqp://%s:%s@%s", mqUser, mqPass, mqHost),
+		DSN: brokerDSN,
 	}
 
 	messaging := broker.NewMQ(

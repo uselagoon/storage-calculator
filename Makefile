@@ -29,6 +29,8 @@ KUSTOMIZE_VERSION := v5.4.3
 KUBECTL = $(realpath ./local-dev/kubectl)
 KIND = $(realpath ./local-dev/kind)
 KUSTOMIZE = $(realpath ./local-dev/kustomize)
+HELM = $(realpath ./local-dev/helm)
+JQ = $(realpath ./local-dev/jq)
 
 ARCH := $(shell uname | tr '[:upper:]' '[:lower:]')
 
@@ -76,8 +78,43 @@ ifneq ($(KUBECTL_VERSION), $(shell ./local-dev/kubectl version --client 2>/dev/n
 endif
 endif
 
+.PHONY: local-dev/helm
+local-dev/helm:
+ifeq ($(HELM_VERSION), $(shell helm version --short --client 2>/dev/null | sed -nE 's/(v[0-9.]+).*/\1/p'))
+	$(info linking local helm version $(HELM_VERSION))
+	ln -sf $(shell command -v helm) ./local-dev/helm
+else
+ifneq ($(HELM_VERSION), $(shell ./local-dev/helm version --short --client 2>/dev/null | sed -nE 's/(v[0-9.]+).*/\1/p'))
+	$(info downloading helm version $(HELM_VERSION) for $(ARCH))
+	rm local-dev/helm || true
+	curl -sSL https://get.helm.sh/helm-$(HELM_VERSION)-$(ARCH)-amd64.tar.gz | tar -xzC local-dev --strip-components=1 $(ARCH)-amd64/helm
+	chmod a+x local-dev/helm
+endif
+endif
+
+.PHONY: local-dev/jq
+local-dev/jq:
+ifeq ($(GOJQ_VERSION), $(shell gojq -v 2>/dev/null | sed -nE 's/gojq ([0-9.]+).*/v\1/p'))
+	$(info linking local gojq version $(GOJQ_VERSION))
+	ln -sf $(shell command -v gojq) ./local-dev/jq
+else
+ifneq ($(GOJQ_VERSION), $(shell ./local-dev/jq -v 2>/dev/null | sed -nE 's/gojq ([0-9.]+).*/v\1/p'))
+	$(info downloading gojq version $(GOJQ_VERSION) for $(ARCH))
+	rm local-dev/jq || true
+ifeq ($(ARCH), darwin)
+	TMPDIR=$$(mktemp -d) \
+		&& curl -sSL https://github.com/itchyny/gojq/releases/download/$(GOJQ_VERSION)/gojq_$(GOJQ_VERSION)_$(ARCH)_arm64.zip -o $$TMPDIR/gojq.zip \
+		&& (cd $$TMPDIR && unzip gojq.zip) && cp $$TMPDIR/gojq_$(GOJQ_VERSION)_$(ARCH)_arm64/gojq ./local-dev/jq && rm -rf $$TMPDIR
+else
+	curl -sSL https://github.com/itchyny/gojq/releases/download/$(GOJQ_VERSION)/gojq_$(GOJQ_VERSION)_$(ARCH)_amd64.tar.gz | tar -xzC local-dev --strip-components=1 gojq_$(GOJQ_VERSION)_$(ARCH)_amd64/gojq
+	mv ./local-dev/{go,}jq
+endif
+	chmod a+x local-dev/jq
+endif
+endif
+
 .PHONY: local-dev/tools
-local-dev/tools: local-dev/kind local-dev/kustomize local-dev/kubectl
+local-dev/tools: local-dev/kind local-dev/kustomize local-dev/kubectl local-dev/helm local-dev/jq
 
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.29.0
@@ -181,6 +218,30 @@ create-kind-cluster: local-dev/tools
 		&& export KIND_EXPERIMENTAL_DOCKER_NETWORK=$(KIND_NETWORK) \
  		&& $(KIND) create cluster --wait=60s --name=$(KIND_CLUSTER)
 
+# generate-broker-certs will generate a ca, server and client certificate used for the test suite
+.PHONY: generate-broker-certs
+generate-broker-certs:
+	@mkdir -p local-dev/certificates
+	openssl x509 -enddate -noout -in local-dev/certificates/ca.crt > /dev/null 2>&1 || \
+    (openssl genrsa -out local-dev/certificates/ca.key 4096 && \
+	openssl req -x509 -new -nodes -key local-dev/certificates/ca.key -sha256 -days 1826 -out local-dev/certificates/ca.crt -subj '/CN=lagoon Root CA/C=IO/ST=State/L=City/O=lagoon' && \
+    openssl ecparam -name prime256v1 -genkey -noout -out local-dev/certificates/tls.key && \
+	chmod +r local-dev/certificates/tls.key && \
+	echo "subjectAltName = IP:172.17.0.1" > local-dev/certificates/extfile.cnf && \
+	openssl req -new -nodes -out local-dev/certificates/tls.csr -key local-dev/certificates/tls.key -subj '/CN=broker/C=IO/ST=State/L=City/O=lagoon' && \
+    openssl x509 -req -in local-dev/certificates/tls.csr -CA local-dev/certificates/ca.crt -extfile local-dev/certificates/extfile.cnf -CAkey local-dev/certificates/ca.key -CAcreateserial -out local-dev/certificates/tls.crt -days 730 -sha256 && \
+    openssl ecparam -name prime256v1 -genkey -noout -out local-dev/certificates/clienttls.key && \
+	chmod +r local-dev/certificates/clienttls.key && \
+	openssl req -new -nodes -out local-dev/certificates/clienttls.csr -key local-dev/certificates/clienttls.key -subj '/CN=client/C=IO/ST=State/L=City/O=lagoon' && \
+    openssl x509 -req -in local-dev/certificates/clienttls.csr -CA local-dev/certificates/ca.crt -CAkey local-dev/certificates/ca.key -CAcreateserial -out local-dev/certificates/clienttls.crt -days 730 -sha256)
+
+.PHONY: regenerate-broker-certs
+regenerate-broker-certs:
+	@mkdir -p local-dev/certificates
+	@rm local-dev/certificates/ca.key || true && \
+	rm local-dev/certificates/ca.crt || true && \
+	$(MAKE) generate-broker-certs
+
 # Create a kind cluster locally and run the test e2e test suite against it
 .PHONY: kind/test-e2e  # Run the e2e tests against a Kind k8s instance that is spun up locally
 kind/test-e2e: create-kind-cluster kind/re-test-e2e
@@ -199,7 +260,10 @@ kind/clean:
 
 # Utilize Kind or modify the e2e tests to load the image locally, enabling compatibility with other vendors.
 .PHONY: test-e2e  # Run the e2e tests against a Kind k8s instance that is spun up inside github action.
-test-e2e: local-dev/tools 
+test-e2e: local-dev/tools generate-broker-certs
+	($(KUBECTL) create namespace storage-calculator-system || echo "namespace exists") && \
+	($(KUBECTL) -n storage-calculator-system delete secret lagoon-broker-tls || echo "lagoon-broker-tls doesn't exist, ignoring") && \
+	$(KUBECTL) -n storage-calculator-system create secret generic lagoon-broker-tls --from-file=tls.crt=local-dev/certificates/clienttls.crt --from-file=tls.key=local-dev/certificates/clienttls.key --from-file=ca.crt=local-dev/certificates/ca.crt && \
 	go test ./test/e2e/ -v -ginkgo.v
 
 .PHONY: kind/set-kubeconfig
