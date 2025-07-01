@@ -2,6 +2,7 @@
 
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/10781/badge)](https://www.bestpractices.dev/projects/10781)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/uselagoon/storage-calculator/badge)](https://securityscorecards.dev/viewer/?uri=github.com/uselagoon/storage-calculator)
+[![coverage](https://raw.githubusercontent.com/uselagoon/storage-calculator/badges/.badges/main/coverage.svg)](https://github.com/uselagoon/storage-calculator/actions/workflows/coverage.yaml)
 
 A replacement for the Lagoon storage-calculator service that runs in remote clusters
 
