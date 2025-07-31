@@ -19,21 +19,21 @@ func (c *Calculator) checkVolumesCreatePods(
 	opLog logr.Logger,
 	namespace corev1.Namespace,
 ) error {
-	opLog.Info(fmt.Sprintf("calculating storage for namespace %s", namespace.ObjectMeta.Name))
+	opLog.Info(fmt.Sprintf("calculating storage for namespace %s", namespace.Name))
 
 	// check for existing storage-calculator pods that may be stuck and clean them up before proceeding
 	p1, _ := labels.NewRequirement("lagoon.sh/storageCalculator", "in", []string{"true"})
 	labelRequirements := []labels.Requirement{}
 	labelRequirements = append(labelRequirements, *p1)
 	podListOption := (&client.ListOptions{}).ApplyOptions([]client.ListOption{
-		client.InNamespace(namespace.ObjectMeta.Name),
+		client.InNamespace(namespace.Name),
 		client.MatchingLabelsSelector{
 			Selector: labels.NewSelector().Add(labelRequirements...),
 		},
 	})
 	pods := &corev1.PodList{}
 	if err := c.Client.List(ctx, pods, podListOption); err != nil {
-		opLog.Error(err, fmt.Sprintf("error getting running pods for namespace %s", namespace.ObjectMeta.Name))
+		opLog.Error(err, fmt.Sprintf("error getting running pods for namespace %s", namespace.Name))
 	}
 	for _, pod := range pods.Items {
 		c.cleanup(ctx, opLog, &pod)
@@ -41,19 +41,19 @@ func (c *Calculator) checkVolumesCreatePods(
 
 	// get a list of the persistent volume claims in the namespace
 	listOption := (&client.ListOptions{}).ApplyOptions([]client.ListOption{
-		client.InNamespace(namespace.ObjectMeta.Name),
+		client.InNamespace(namespace.Name),
 	})
 	pvcs := &corev1.PersistentVolumeClaimList{}
 	if err := c.Client.List(ctx, pvcs, listOption); err != nil {
-		opLog.Error(err, fmt.Sprintf("error getting pvcs for namespace %s", namespace.ObjectMeta.Name))
+		opLog.Error(err, fmt.Sprintf("error getting pvcs for namespace %s", namespace.Name))
 	} else {
 		// check for ignore regex configuration
 		ignoreRegex := c.IgnoreRegex
-		if value, ok := namespace.ObjectMeta.Labels["lagoon.sh/storageCalculatorIgnoreRegex"]; ok {
+		if value, ok := namespace.Labels["lagoon.sh/storageCalculatorIgnoreRegex"]; ok {
 			ignoreRegex = value
 		}
 		environmentID := 0
-		if value, ok := namespace.ObjectMeta.Labels["lagoon.sh/environmentId"]; ok {
+		if value, ok := namespace.Labels["lagoon.sh/environmentId"]; ok {
 			eBytes := strings.TrimSpace(value)
 			environmentID, _ = strconv.Atoi(eBytes)
 		}
@@ -71,13 +71,13 @@ func (c *Calculator) checkVolumesCreatePods(
 				EventType: "environmentStorage",
 				Data:      storData,
 				Meta: MetaData{
-					Namespace:   namespace.ObjectMeta.Name,
-					Project:     namespace.ObjectMeta.Labels["lagoon.sh/project"],
-					Environment: namespace.ObjectMeta.Labels["lagoon.sh/environment"],
+					Namespace:   namespace.Name,
+					Project:     namespace.Labels["lagoon.sh/project"],
+					Environment: namespace.Labels["lagoon.sh/environment"],
 				},
 			}
 			// send the calculated storage result to the api @TODO
-			opLog.Info(fmt.Sprintf("no volumes in %s: %v", namespace.ObjectMeta.Name, actionData))
+			opLog.Info(fmt.Sprintf("no volumes in %s: %v", namespace.Name, actionData))
 			// export metrics if enabled
 			if c.ExportMetrics {
 				actionData.ExportMetrics(c.PromStorage)
@@ -89,7 +89,7 @@ func (c *Calculator) checkVolumesCreatePods(
 				return err
 			}
 			// no pvcs in this namespace, continue to the next one
-			return fmt.Errorf("no pvcs in namespace %s", namespace.ObjectMeta.Name)
+			return fmt.Errorf("no pvcs in namespace %s", namespace.Name)
 		}
 
 		// work out how many storage-calculator pods are required for this environment
@@ -99,7 +99,7 @@ func (c *Calculator) checkVolumesCreatePods(
 		for _, pvc := range pvcs.Items {
 			// check if the specified pvc is to be ignored
 			if ignoreRegex != "" {
-				match, _ := regexp.MatchString(ignoreRegex, pvc.ObjectMeta.Name)
+				match, _ := regexp.MatchString(ignoreRegex, pvc.Name)
 				if match {
 					// this pvc is not to be calculated
 					continue
@@ -117,23 +117,23 @@ func (c *Calculator) checkVolumesCreatePods(
 				// this pvc is a rwo, check which node the volume is on
 				// if there are multiple pvcs on this node they will get appended to the node map
 				// otherwise if they are spread across multiple nodes they will get up on those specific nodes
-				podNode, err := c.getNodeForRWOPV(ctx, opLog, namespace, pvc.Labels["lagoon.sh/service-type"], pvc.ObjectMeta.Name)
+				podNode, err := c.getNodeForRWOPV(ctx, opLog, namespace, pvc.Labels["lagoon.sh/service-type"], pvc.Name)
 				if err != nil {
 					if strings.Contains(err.Error(), "volume is not attached to any pods") {
 						opLog.Info(fmt.Sprintf("%v", err))
 						// append to the general namespace based volumes
 						volumes = append(volumes, corev1.Volume{
-							Name: pvc.ObjectMeta.Name,
+							Name: pvc.Name,
 							VolumeSource: corev1.VolumeSource{
 								PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-									ClaimName: pvc.ObjectMeta.Name,
+									ClaimName: pvc.Name,
 									ReadOnly:  true,
 								},
 							},
 						})
 						volumeMounts = append(volumeMounts, corev1.VolumeMount{
-							Name:      pvc.ObjectMeta.Name,
-							MountPath: fmt.Sprintf("/storage/%s", pvc.ObjectMeta.Name),
+							Name:      pvc.Name,
+							MountPath: fmt.Sprintf("/storage/%s", pvc.Name),
 						})
 					} else {
 						// otherwise skip it as there could be other issues
@@ -144,14 +144,14 @@ func (c *Calculator) checkVolumesCreatePods(
 				if spn, ok := storagePodPerNode[podNode]; ok {
 					// if this is the first time we are seeing the node, add the first volume to it
 					spn.VolumeMounts = append(spn.VolumeMounts, corev1.VolumeMount{
-						Name:      pvc.ObjectMeta.Name,
-						MountPath: fmt.Sprintf("/storage/%s", pvc.ObjectMeta.Name),
+						Name:      pvc.Name,
+						MountPath: fmt.Sprintf("/storage/%s", pvc.Name),
 					})
 					spn.Volumes = append(spn.Volumes, corev1.Volume{
-						Name: pvc.ObjectMeta.Name,
+						Name: pvc.Name,
 						VolumeSource: corev1.VolumeSource{
 							PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-								ClaimName: pvc.ObjectMeta.Name,
+								ClaimName: pvc.Name,
 								ReadOnly:  true,
 							},
 						},
@@ -163,16 +163,16 @@ func (c *Calculator) checkVolumesCreatePods(
 						NodeName: podNode,
 						VolumeMounts: []corev1.VolumeMount{
 							{
-								Name:      pvc.ObjectMeta.Name,
-								MountPath: fmt.Sprintf("/storage/%s", pvc.ObjectMeta.Name),
+								Name:      pvc.Name,
+								MountPath: fmt.Sprintf("/storage/%s", pvc.Name),
 							},
 						},
 						Volumes: []corev1.Volume{
 							{
-								Name: pvc.ObjectMeta.Name,
+								Name: pvc.Name,
 								VolumeSource: corev1.VolumeSource{
 									PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-										ClaimName: pvc.ObjectMeta.Name,
+										ClaimName: pvc.Name,
 										ReadOnly:  true,
 									},
 								},
@@ -184,17 +184,17 @@ func (c *Calculator) checkVolumesCreatePods(
 				// otherwise it has ReadWriteMany volume to append to the existing volumes
 				// these can be created on any node
 				volumes = append(volumes, corev1.Volume{
-					Name: pvc.ObjectMeta.Name,
+					Name: pvc.Name,
 					VolumeSource: corev1.VolumeSource{
 						PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-							ClaimName: pvc.ObjectMeta.Name,
+							ClaimName: pvc.Name,
 							ReadOnly:  true,
 						},
 					},
 				})
 				volumeMounts = append(volumeMounts, corev1.VolumeMount{
-					Name:      pvc.ObjectMeta.Name,
-					MountPath: fmt.Sprintf("/storage/%s", pvc.ObjectMeta.Name),
+					Name:      pvc.Name,
+					MountPath: fmt.Sprintf("/storage/%s", pvc.Name),
 				})
 			}
 		}
@@ -204,19 +204,19 @@ func (c *Calculator) checkVolumesCreatePods(
 		if len(storagePodPerNode) >= 1 {
 			for k := range storagePodPerNode {
 				// add the general volumes to an existing storagepod
-				vols := append(storagePodPerNode[k].Volumes, volumes...)
-				volMounts := append(storagePodPerNode[k].VolumeMounts, volumeMounts...)
+				volumes := append(storagePodPerNode[k].Volumes, volumes...)
+				volumeMounts := append(storagePodPerNode[k].VolumeMounts, volumeMounts...)
 				storagePodPerNode[k] = storageCalculatorPod{
 					NodeName:     storagePodPerNode[k].NodeName,
-					Volumes:      vols,
-					VolumeMounts: volMounts,
+					Volumes:      volumes,
+					VolumeMounts: volumeMounts,
 				}
 				// drop out, only needs to be on the first one that is in the slice if there are more than 1
 				break
 			}
 		} else {
 			// there aren't any rwo volumes, so just create a single pod for all general volumes
-			storagePodPerNode[namespace.ObjectMeta.Name] = storageCalculatorPod{
+			storagePodPerNode[namespace.Name] = storageCalculatorPod{
 				Volumes:      volumes,
 				VolumeMounts: volumeMounts,
 			}
@@ -240,15 +240,15 @@ func (c *Calculator) getNodeForRWOPV(ctx context.Context, opLog logr.Logger, nam
 	labelRequirements := []labels.Requirement{}
 	labelRequirements = append(labelRequirements, *p1)
 	podListOption := (&client.ListOptions{}).ApplyOptions([]client.ListOption{
-		client.InNamespace(namespace.ObjectMeta.Name),
+		client.InNamespace(namespace.Name),
 		client.MatchingLabelsSelector{
 			Selector: labels.NewSelector().Add(labelRequirements...),
 		},
 	})
 	pods := &corev1.PodList{}
 	if err := c.Client.List(ctx, pods, podListOption); err != nil {
-		opLog.Error(err, fmt.Sprintf("error getting running pvcs for namespace %s", namespace.ObjectMeta.Name))
-		return "", fmt.Errorf("error getting running pvcs for namespace %s", namespace.ObjectMeta.Name)
+		opLog.Error(err, fmt.Sprintf("error getting running pvcs for namespace %s", namespace.Name))
+		return "", fmt.Errorf("error getting running pvcs for namespace %s", namespace.Name)
 	}
 	for _, pod := range pods.Items {
 		for _, volume := range pod.Spec.Volumes {

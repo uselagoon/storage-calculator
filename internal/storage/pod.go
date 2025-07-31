@@ -43,7 +43,7 @@ func (c *Calculator) createStoragePod(
 	storagePod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      podName,
-			Namespace: namespace.ObjectMeta.Name,
+			Namespace: namespace.Name,
 			Labels: map[string]string{
 				"lagoon.sh/storageCalculator": "true",
 			},
@@ -76,7 +76,7 @@ func (c *Calculator) createStoragePod(
 		}, lagoonEnvConfigMap)
 		if err != nil {
 			// just log the warning
-			opLog.Info(fmt.Sprintf("no lagoon-env secret or configmap %s/%s", namespace.ObjectMeta.Name, podName))
+			opLog.Info(fmt.Sprintf("no lagoon-env secret or configmap %s/%s", namespace.Name, podName))
 		} else {
 			// add the lagoon-env configmap to the storage-calculator pod
 			storagePod.Spec.Containers[0].EnvFrom = append(storagePod.Spec.Containers[0].EnvFrom, corev1.EnvFromSource{
@@ -96,7 +96,7 @@ func (c *Calculator) createStoragePod(
 		}, lagoonPlatformEnvSecret)
 		if err != nil {
 			// just log the warning
-			opLog.Info(fmt.Sprintf("no lagoon-platform-env secret %s/%s", namespace.ObjectMeta.Name, podName))
+			opLog.Info(fmt.Sprintf("no lagoon-platform-env secret %s/%s", namespace.Name, podName))
 		} else {
 			// add the lagoon-platform-env secret to the storage-calculator pod
 			storagePod.Spec.Containers[0].EnvFrom = append(storagePod.Spec.Containers[0].EnvFrom, corev1.EnvFromSource{
@@ -153,30 +153,30 @@ func (c *Calculator) createStoragePod(
 	}
 
 	// create the pod in the cluster
-	opLog.Info(fmt.Sprintf("creating storage-calculator pod %s/%s", namespace.ObjectMeta.Name, podName))
+	opLog.Info(fmt.Sprintf("creating storage-calculator pod %s/%s", namespace.Name, podName))
 	if err := c.Client.Create(ctx, storagePod); err != nil {
-		return fmt.Errorf("error creating storage-calculator pod %s/%s: %v", namespace.ObjectMeta.Name, podName, err)
+		return fmt.Errorf("error creating storage-calculator pod %s/%s: %v", namespace.Name, podName, err)
 	}
 
 	// wait for it to be running, or time out waiting to start the pod
-	if err := wait.PollImmediateWithContext(ctx, time.Second, 90*time.Second,
-		c.hasRunningPod(ctx, namespace.ObjectMeta.Name, podName)); err != nil {
+	if err := wait.PollUntilContextTimeout(ctx, time.Second, 90*time.Second, true,
+		c.hasRunningPod(ctx, namespace.Name, podName)); err != nil {
 		c.cleanup(ctx, opLog, storagePod)
-		return fmt.Errorf("error starting storage-calculator pod %s/%s: %v", namespace.ObjectMeta.Name, podName, err)
+		return fmt.Errorf("error starting storage-calculator pod %s/%s: %v", namespace.Name, podName, err)
 	}
 
 	// exec in and check the volumes are mounted firstly
 	var stdin io.Reader
 	_, _, err = execPod(
 		podName,
-		namespace.ObjectMeta.Name,
+		namespace.Name,
 		[]string{"/bin/sh", "-c", "ls /storage"},
 		stdin,
 		false,
 	)
 	if err != nil {
 		c.cleanup(ctx, opLog, storagePod)
-		return fmt.Errorf("error checking storage-calculator pod %s/%s for volumes: %v", namespace.ObjectMeta.Name, podName, err)
+		return fmt.Errorf("error checking storage-calculator pod %s/%s for volumes: %v", namespace.Name, podName, err)
 	}
 
 	// check pvcs for their sizes
@@ -194,14 +194,14 @@ func (c *Calculator) createStoragePod(
 		var stdin io.Reader
 		pvcValue, _, err := execPod(
 			podName,
-			namespace.ObjectMeta.Name,
+			namespace.Name,
 			[]string{"/bin/sh", "-c", fmt.Sprintf("du -s /storage/%s | cut -f1", vol.Name)},
 			stdin,
 			false,
 		)
 		if err != nil {
 			c.cleanup(ctx, opLog, storagePod)
-			return fmt.Errorf("error checking storage-calculator pod %s/%s for pvc %s size: %v", namespace.ObjectMeta.Name, podName, vol.Name, err)
+			return fmt.Errorf("error checking storage-calculator pod %s/%s for pvc %s size: %v", namespace.Name, podName, vol.Name, err)
 		}
 		pBytes := strings.TrimSpace(pvcValue)
 		pBytesInt, _ := strconv.Atoi(pBytes)
@@ -218,13 +218,13 @@ func (c *Calculator) createStoragePod(
 		// collect the size of the db size from a dbaas
 		mdbValue, _, err := execPod(
 			podName,
-			namespace.ObjectMeta.Name,
+			namespace.Name,
 			[]string{"/bin/sh", "-c", `if [ "$MARIADB_HOST" ]; then mysql -N -s -h $MARIADB_HOST -u$MARIADB_USERNAME -p$MARIADB_PASSWORD -P$MARIADB_PORT -e 'SELECT ROUND(SUM(data_length + index_length) / 1024, 0) FROM information_schema.tables'; else exit 0; fi`},
 			stdin,
 			false,
 		)
 		if err != nil {
-			opLog.Info(fmt.Sprintf("error checking storage-calculator pod %s/%s for database size", namespace.ObjectMeta.Name, podName))
+			opLog.Info(fmt.Sprintf("error checking storage-calculator pod %s/%s for database size", namespace.Name, podName))
 		}
 		if mdbValue != "" {
 			// if there is a value returned that isn't "no database"
@@ -248,7 +248,7 @@ func (c *Calculator) createStoragePod(
 			})
 			if err := c.Client.Patch(ctx, &namespace, client.RawPatch(types.MergePatchType, mergePatch)); err != nil {
 				c.cleanup(ctx, opLog, storagePod)
-				return fmt.Errorf("error patching namespace %s: %v", namespace.ObjectMeta.Name, err)
+				return fmt.Errorf("error patching namespace %s: %v", namespace.Name, err)
 			}
 		}
 		// let the process know that we already checked the database so any additional storage-calculator pods for this namespace
@@ -263,12 +263,12 @@ func (c *Calculator) createStoragePod(
 		EventType: "environmentStorage",
 		Data:      storData,
 		Meta: MetaData{
-			Namespace:   namespace.ObjectMeta.Name,
-			Project:     namespace.ObjectMeta.Labels["lagoon.sh/project"],
-			Environment: namespace.ObjectMeta.Labels["lagoon.sh/environment"],
+			Namespace:   namespace.Name,
+			Project:     namespace.Labels["lagoon.sh/project"],
+			Environment: namespace.Labels["lagoon.sh/environment"],
 		},
 	}
-	opLog.Info(fmt.Sprintf("volumes from storage-calculator pod %s/%s: %v", namespace.ObjectMeta.Name, podName, actionData))
+	opLog.Info(fmt.Sprintf("volumes from storage-calculator pod %s/%s: %v", namespace.Name, podName, actionData))
 	// export metrics if enabled
 	if c.ExportMetrics {
 		actionData.ExportMetrics(c.PromStorage)
