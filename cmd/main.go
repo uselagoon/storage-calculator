@@ -268,9 +268,13 @@ func main() {
 	c := cron.New()
 	// add the cronjobs we need.
 	// Storage Calculator
-	c.AddFunc(calculatorCron, func() {
+	_, err = c.AddFunc(calculatorCron, func() {
 		storage.Calculate()
 	})
+	if err != nil {
+		setupLog.Error(err, "unable to create storage calculator cronjob", "controller", "StorageCalculator")
+		os.Exit(1)
+	}
 	// start crons.
 	c.Start()
 	//+kubebuilder:scaffold:builder

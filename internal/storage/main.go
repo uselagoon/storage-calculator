@@ -71,7 +71,7 @@ type ActionData struct {
 type StorageClaim struct {
 	Environment          int    `json:"environment"`
 	PersisteStorageClaim string `json:"persistentStorageClaim"`
-	//it is actually kilobytes that du outputs, this should be deprecated
+	// it is actually kilobytes that du outputs, this should be deprecated
 	BytesUsed uint64 `json:"bytesUsed"`
 	KiBUsed   uint64 `json:"kibUsed"`
 }
@@ -80,7 +80,6 @@ type StorageClaim struct {
 func (c *Calculator) Calculate() {
 	ctx := context.Background()
 	opLog := c.Log.WithName("storage").WithName("Calculator")
-	listOption := &client.ListOptions{}
 	// check for environments that are lagoon environments
 	r1, _ := labels.NewRequirement("lagoon.sh/environmentType", "in", []string{"production", "development"})
 	// and check for namespaces that have not got storagecalculator disabled
@@ -90,7 +89,7 @@ func (c *Calculator) Calculate() {
 	labelRequirements = append(labelRequirements, *r1)
 	labelRequirements = append(labelRequirements, *r2)
 	labelRequirements = append(labelRequirements, *r3)
-	listOption = (&client.ListOptions{}).ApplyOptions([]client.ListOption{
+	listOption := (&client.ListOptions{}).ApplyOptions([]client.ListOption{
 		client.MatchingLabelsSelector{
 			Selector: labels.NewSelector().Add(labelRequirements...),
 		},
@@ -113,9 +112,9 @@ func (c *Calculator) cleanup(
 	opLog logr.Logger,
 	storagePod *corev1.Pod,
 ) {
-	opLog.Info(fmt.Sprintf("cleaning up storage-calculator pod %s/%s", storagePod.ObjectMeta.Namespace, storagePod.ObjectMeta.Name))
+	opLog.Info(fmt.Sprintf("cleaning up storage-calculator pod %s/%s", storagePod.Namespace, storagePod.Name))
 	if err := c.Client.Delete(ctx, storagePod); err != nil {
-		opLog.Error(err, fmt.Sprintf("error deleting storage-calculator pod %s/%s", storagePod.ObjectMeta.Namespace, storagePod.ObjectMeta.Name))
+		opLog.Error(err, fmt.Sprintf("error deleting storage-calculator pod %s/%s", storagePod.Namespace, storagePod.Name))
 	}
 }
 
