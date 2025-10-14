@@ -203,13 +203,13 @@ func (c *Calculator) createStoragePod(
 			c.cleanup(ctx, opLog, storagePod)
 			return fmt.Errorf("error checking storage-calculator pod %s/%s for pvc %s size: %v", namespace.Name, podName, vol.Name, err)
 		}
-		pBytes := strings.TrimSpace(pvcValue)
-		pBytesInt, _ := strconv.Atoi(pBytes)
+		kiBytes := strings.TrimSpace(pvcValue)
+		kiBytesInt, _ := strconv.Atoi(kiBytes)
 		storData.Claims = append(storData.Claims, StorageClaim{
 			Environment:          environmentID,
 			PersisteStorageClaim: vol.Name,
-			BytesUsed:            uint64(pBytesInt),
-			KiBUsed:              uint64(pBytesInt),
+			BytesUsed:            uint64(kiBytesInt),
+			KiBUsed:              uint64(kiBytesInt),
 		})
 	}
 
@@ -229,20 +229,20 @@ func (c *Calculator) createStoragePod(
 		if mdbValue != "" {
 			// if there is a value returned that isn't "no database"
 			// then storedata against the event data
-			mBytes := strings.TrimSpace(mdbValue)
-			mBytesInt, _ := strconv.Atoi(mBytes)
+			kiBytes := strings.TrimSpace(mdbValue)
+			kiBytesInt, _ := strconv.Atoi(kiBytes)
 			storData.Claims = append(storData.Claims, StorageClaim{
 				Environment:          environmentID,
 				PersisteStorageClaim: "mariadb",
-				BytesUsed:            uint64(mBytesInt),
-				KiBUsed:              uint64(mBytesInt),
+				BytesUsed:            uint64(kiBytesInt),
+				KiBUsed:              uint64(kiBytesInt),
 			})
 			// and attempt to patch the namespace with the labels
 			mergePatch, _ := json.Marshal(map[string]interface{}{
 				"metadata": map[string]interface{}{
 					"labels": map[string]string{
-						"lagoon/storage-mariadb":    mBytes,
-						"lagoon.sh/storage-mariadb": mBytes,
+						"lagoon/storage-mariadb":    kiBytes,
+						"lagoon.sh/storage-mariadb": kiBytes,
 					},
 				},
 			})
