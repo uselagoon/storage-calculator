@@ -206,7 +206,7 @@ var _ = Describe("controller", Ordered, func() {
 				)
 				podlogs, err := utils.Run(cmd)
 				ExpectWithOffset(2, err).NotTo(HaveOccurred())
-				if !strings.Contains(string(podlogs), "volumes from storage-calculator pod example-project-main") {
+				if !strings.Contains(string(podlogs), "storage in example-project-main") {
 					return fmt.Errorf("storage-calculator-pod not created")
 				}
 				return nil

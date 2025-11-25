@@ -35,6 +35,7 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
 	// "github.com/cheshir/go-mq"
+	mariadbv1 "github.com/amazeeio/dbaas-operator/apis/mariadb/v1"
 	mq "github.com/cheshir/go-mq/v2"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -62,6 +63,7 @@ var (
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
+	utilruntime.Must(mariadbv1.AddToScheme(scheme))
 
 	//+kubebuilder:scaffold:scheme
 }

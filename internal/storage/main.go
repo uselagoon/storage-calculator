@@ -2,8 +2,10 @@ package storage
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/go-logr/logr"
 	"github.com/prometheus/client_golang/prometheus"
@@ -98,9 +100,70 @@ func (c *Calculator) Calculate() {
 		return
 	}
 	for _, namespace := range namespaces.Items {
-		err := c.checkVolumesCreatePods(ctx, opLog, namespace)
-		if err != nil {
-			continue
+		opLog.Info(fmt.Sprintf("calculating storage for namespace %s", namespace.Name))
+
+		// Cleanup old calculator pods if they are still running.
+		p1, _ := labels.NewRequirement("lagoon.sh/storageCalculator", "in", []string{"true"})
+		labelRequirements := []labels.Requirement{}
+		labelRequirements = append(labelRequirements, *p1)
+		podListOption := (&client.ListOptions{}).ApplyOptions([]client.ListOption{
+			client.InNamespace(namespace.Name),
+			client.MatchingLabelsSelector{
+				Selector: labels.NewSelector().Add(labelRequirements...),
+			},
+		})
+		pods := &corev1.PodList{}
+		if err := c.Client.List(ctx, pods, podListOption); err != nil {
+			opLog.Error(err, fmt.Sprintf("error getting storage-calculator pods for namespace %s", namespace.Name))
+		}
+		for _, pod := range pods.Items {
+			c.cleanup(ctx, opLog, &pod)
+		}
+
+		// Calculate storage for volumes and databases.
+		volClaims, volErr := c.checkVolumesCreatePods(ctx, opLog, namespace)
+		if volErr != nil {
+			opLog.Error(volErr, "error calculating volumes")
+		}
+		dbClaims, dbErr := c.checkDatabasesCreatePods(ctx, opLog, namespace)
+		if dbErr != nil {
+			opLog.Error(dbErr, "error calculating databases")
+		}
+
+		// Report a "none" claim to differentiate between no storage used and no
+		// storage recorded (due to error or crash)
+		if (volClaims == 0 && volErr != nil) && (dbClaims == 0 && dbErr != nil) {
+			environmentID := 0
+			if value, ok := namespace.Labels["lagoon.sh/environmentId"]; ok {
+				environmentID, _ = strconv.Atoi(strings.TrimSpace(value))
+			}
+
+			storData := ActionData{}
+			storData.Claims = append(storData.Claims, StorageClaim{
+				Environment:          environmentID,
+				PersisteStorageClaim: "none",
+				KiBUsed:              0,
+			})
+			actionData := ActionEvent{
+				Type:      "updateEnvironmentStorage",
+				EventType: "environmentStorage",
+				Data:      storData,
+				Meta: MetaData{
+					Namespace:   namespace.Name,
+					Project:     namespace.Labels["lagoon.sh/project"],
+					Environment: namespace.Labels["lagoon.sh/environment"],
+				},
+			}
+			opLog.Info(fmt.Sprintf("no storage used in %s: %v", namespace.Name, actionData))
+
+			if c.ExportMetrics {
+				actionData.ExportMetrics(c.PromStorage)
+			}
+
+			actionDataJson, _ := json.Marshal(actionData)
+			if err := c.MQ.Publish("lagoon-actions", actionDataJson); err != nil {
+				opLog.Error(err, "error publishing message to mq")
+			}
 		}
 	}
 }
