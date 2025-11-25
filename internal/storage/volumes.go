@@ -63,7 +63,6 @@ func (c *Calculator) checkVolumesCreatePods(
 			storData.Claims = append(storData.Claims, StorageClaim{
 				Environment:          environmentID,
 				PersisteStorageClaim: "none",
-				BytesUsed:            0,
 				KiBUsed:              0,
 			})
 			actionData := ActionEvent{

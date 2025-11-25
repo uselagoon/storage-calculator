@@ -208,7 +208,6 @@ func (c *Calculator) createStoragePod(
 		storData.Claims = append(storData.Claims, StorageClaim{
 			Environment:          environmentID,
 			PersisteStorageClaim: vol.Name,
-			BytesUsed:            uint64(kiBytesInt),
 			KiBUsed:              uint64(kiBytesInt),
 		})
 	}
@@ -234,7 +233,6 @@ func (c *Calculator) createStoragePod(
 			storData.Claims = append(storData.Claims, StorageClaim{
 				Environment:          environmentID,
 				PersisteStorageClaim: "mariadb",
-				BytesUsed:            uint64(kiBytesInt),
 				KiBUsed:              uint64(kiBytesInt),
 			})
 			// and attempt to patch the namespace with the labels

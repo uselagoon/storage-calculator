@@ -24,15 +24,15 @@ Storage-calculator connects to rabbitmq in lagoon-core and publishes to the acti
 		"claims": [{
 			"environment": 1,
 			"persistentStorageClaim": "nginx",
-			"bytesUsed": 1200
+			"kibUsed": 1200
 		}, {
 			"environment": 1,
 			"persistentStorageClaim": "solr",
-			"bytesUsed": 2200
+			"kibUsed": 2200
 		}, {
 			"environment": 1,
 			"persistentStorageClaim": "mariadb",
-			"bytesUsed": 3200
+			"kibUsed": 3200
 		}]
 	}
 }
