@@ -9,6 +9,7 @@ import (
 	"time"
 
 	mariadbv1 "github.com/amazeeio/dbaas-operator/apis/mariadb/v1"
+	postgresv1 "github.com/amazeeio/dbaas-operator/apis/postgres/v1"
 	"github.com/go-logr/logr"
 	ns "github.com/uselagoon/machinery/utils/namespace"
 	corev1 "k8s.io/api/core/v1"
@@ -28,7 +29,8 @@ type volumesCalculatorPod struct {
 
 // databasesCalculatorPod holds resources for databases managed by dbaas-operator.
 type databasesCalculatorPod struct {
-	MariaDB []mariadbv1.MariaDBConsumer
+	MariaDB    []mariadbv1.MariaDBConsumer
+	PostgreSQL []postgresv1.PostgreSQLConsumer
 }
 
 // createVolumesPod creates a pod that will be used to calculate storage usage for volumes listed
@@ -150,6 +152,37 @@ func (c *Calculator) createDatabasePod(
 				Environment: environmentID,
 				// Prevent conflicts with database pod volume names.
 				PersisteStorageClaim: fmt.Sprintf("managed-%s", mariadb.Name),
+				KiBUsed:              uint64(kiBytesInt),
+			})
+		}
+	}
+
+	for _, postgres := range services.PostgreSQL {
+		cmd := []string{
+			"/bin/sh",
+			"-c",
+			fmt.Sprintf(
+				`psql -qtA "postgresql://%s:%s@%s:%s/%s" -c "SELECT ROUND(SUM(pg_total_relation_size(c.oid)) / 1024.0, 0) AS size_kb FROM pg_class c WHERE c.relkind = 'r'"`,
+				postgres.Spec.Consumer.Username,
+				postgres.Spec.Consumer.Password,
+				postgres.Spec.Provider.Hostname,
+				postgres.Spec.Provider.Port,
+				postgres.Spec.Consumer.Database,
+			)}
+
+		podOutput, _, err := execPod(storagePod.Name, namespace.Name, cmd, stdin, false)
+		if err != nil {
+			opLog.Info(fmt.Sprintf("error checking storage-calculator pod %s/%s for %s size: %v", namespace.Name, storagePod.Name, postgres.Name, err))
+			continue
+		}
+
+		if podOutput != "" {
+			kiBytes := strings.TrimSpace(podOutput)
+			kiBytesInt, _ := strconv.Atoi(kiBytes)
+			storageClaims = append(storageClaims, StorageClaim{
+				Environment: environmentID,
+				// Prevent conflicts with database pod volume names.
+				PersisteStorageClaim: fmt.Sprintf("managed-%s", postgres.Name),
 				KiBUsed:              uint64(kiBytesInt),
 			})
 		}

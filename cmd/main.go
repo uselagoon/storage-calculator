@@ -36,6 +36,7 @@ import (
 
 	// "github.com/cheshir/go-mq"
 	mariadbv1 "github.com/amazeeio/dbaas-operator/apis/mariadb/v1"
+	postgresv1 "github.com/amazeeio/dbaas-operator/apis/postgres/v1"
 	mq "github.com/cheshir/go-mq/v2"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -64,6 +65,7 @@ var (
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(mariadbv1.AddToScheme(scheme))
+	utilruntime.Must(postgresv1.AddToScheme(scheme))
 
 	//+kubebuilder:scaffold:scheme
 }
@@ -124,7 +126,7 @@ func main() {
 		"The retry interval for rabbitmq.")
 	flag.StringVar(&lagoonAppID, "lagoon-app-id", "storage-calculator",
 		"The appID to use that will be sent with messages.")
-	flag.StringVar(&storageCalculatorImage, "storage-calculator-image", "imagecache.amazeeio.cloud/amazeeio/alpine-mysql-client",
+	flag.StringVar(&storageCalculatorImage, "storage-calculator-image", "uselagoon/database-tools",
 		"The image to use for storage-calculator pods.")
 	flag.BoolVar(&exportPrometheusMetrics, "prometheus-metrics", false, "Export prometheus metrics.")
 

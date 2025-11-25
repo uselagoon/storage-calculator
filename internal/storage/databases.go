@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	mariadbv1 "github.com/amazeeio/dbaas-operator/apis/mariadb/v1"
+	postgresv1 "github.com/amazeeio/dbaas-operator/apis/postgres/v1"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -33,13 +34,14 @@ func (c *Calculator) checkDatabasesCreatePods(
 		environmentID, _ = strconv.Atoi(strings.TrimSpace(value))
 	}
 
-	// Check for managed MariaDB databases.
-	mariadbs := []mariadbv1.MariaDBConsumer{}
-	listOption := (&client.ListOptions{}).ApplyOptions([]client.ListOption{
+	nsListOption := (&client.ListOptions{}).ApplyOptions([]client.ListOption{
 		client.InNamespace(namespace.Name),
 	})
+
+	// Check for managed MariaDB databases.
+	mariadbs := []mariadbv1.MariaDBConsumer{}
 	mariadbList := &mariadbv1.MariaDBConsumerList{}
-	if err := c.Client.List(ctx, mariadbList, listOption); err != nil {
+	if err := c.Client.List(ctx, mariadbList, nsListOption); err != nil {
 		if !meta.IsNoMatchError(err) {
 			opLog.Error(err, fmt.Sprintf("error getting mariadbconsumer for namespace %s", namespace.Name))
 		}
@@ -56,14 +58,35 @@ func (c *Calculator) checkDatabasesCreatePods(
 		}
 	}
 
-	if len(mariadbs) == 0 {
+	// Check for managed PostgreSQL databases.
+	postgresdbs := []postgresv1.PostgreSQLConsumer{}
+	postgresList := &postgresv1.PostgreSQLConsumerList{}
+	if err := c.Client.List(ctx, postgresList, nsListOption); err != nil {
+		if !meta.IsNoMatchError(err) {
+			opLog.Error(err, fmt.Sprintf("error getting postgresqlconsumer for namespace %s", namespace.Name))
+		}
+	} else {
+		for _, postgres := range postgresList.Items {
+			if ignoreRegex != "" {
+				match, _ := regexp.MatchString(ignoreRegex, postgres.Name)
+				if match {
+					opLog.Info(fmt.Sprintf("ignoring postgresconsumer %s", postgres.Name))
+					continue
+				}
+			}
+			postgresdbs = append(postgresdbs, postgres)
+		}
+	}
+
+	if len(mariadbs) == 0 && len(postgresdbs) == 0 {
 		opLog.Info(fmt.Sprintf("no databases in %s", namespace.Name))
 		return 0, nil
 	}
 
 	// Calculate storage for all databases.
 	services := databasesCalculatorPod{
-		MariaDB: mariadbs,
+		MariaDB:    mariadbs,
+		PostgreSQL: postgresdbs,
 	}
 	storageClaims, err := c.createDatabasePod(ctx, opLog, namespace, services, environmentID)
 	if err != nil {
