@@ -150,8 +150,8 @@ func (c *Calculator) createDatabasePod(
 			kiBytesInt, _ := strconv.Atoi(kiBytes)
 			storageClaims = append(storageClaims, StorageClaim{
 				Environment: environmentID,
-				// Prevent conflicts with database pod volume names.
-				PersisteStorageClaim: fmt.Sprintf("managed-%s", mariadb.Name),
+				// Will overwrite storage of volumes with same name (extreme edge case).
+				PersisteStorageClaim: mariadb.Name,
 				KiBUsed:              uint64(kiBytesInt),
 			})
 		}

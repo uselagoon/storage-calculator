@@ -3,7 +3,7 @@ module github.com/uselagoon/storage-calculator
 go 1.24.0
 
 require (
-	github.com/amazeeio/dbaas-operator v0.3.1
+	github.com/amazeeio/dbaas-operator v0.4.0
 	github.com/cheshir/go-mq/v2 v2.0.1
 	github.com/go-logr/logr v1.4.3
 	github.com/onsi/ginkgo/v2 v2.25.2

@@ -109,8 +109,8 @@ github.com/alecthomas/units v0.0.0-20190717042225-c3de453c63f4/go.mod h1:ybxpYRF
 github.com/alecthomas/units v0.0.0-20190924025748-f65c72e2690d/go.mod h1:rBZYJk541a8SKzHPHnH3zbiI+7dagKZ0cgpgrD7Fyho=
 github.com/alexflint/go-filemutex v0.0.0-20171022225611-72bdc8eae2ae/go.mod h1:CgnQgUtFrFz9mxFNtED3jI5tLDjKlOM+oUF/sTk6ps0=
 github.com/alexflint/go-filemutex v1.1.0/go.mod h1:7P4iRhttt/nUvUOrYIhcpMzv2G6CY9UnI16Z+UJqRyk=
-github.com/amazeeio/dbaas-operator v0.3.1 h1:T17c16y4qY6z8kPokmD4A0+BQhRPzVaPRu1l+R63Wpo=
-github.com/amazeeio/dbaas-operator v0.3.1/go.mod h1:fbZuWO1a4JhEJZLrSdOg/+YEzGL6yZcGpfHiIqn72dc=
+github.com/amazeeio/dbaas-operator v0.4.0 h1:xxbpffB1Y8DlUV+LIIkSH/uwrZqdTVDyFD7hWcOxnog=
+github.com/amazeeio/dbaas-operator v0.4.0/go.mod h1:fbZuWO1a4JhEJZLrSdOg/+YEzGL6yZcGpfHiIqn72dc=
 github.com/antihax/optional v1.0.0/go.mod h1:uupD/76wgC+ih3iEmQUL+0Ugr19nfwCT1kdvxnR2qWY=
 github.com/antlr4-go/antlr/v4 v4.13.1 h1:SqQKkuVZ+zWkMMNkjy5FZe5mr5WURWnlpmOuzYWrPrQ=
 github.com/antlr4-go/antlr/v4 v4.13.1/go.mod h1:GKmUxMtwp6ZgGwZSva4eWPC5mS6vUAmOABFgjdkM7Nw=
