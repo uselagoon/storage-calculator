@@ -37,8 +37,11 @@ var (
 	duration = 600 * time.Second
 	interval = 1 * time.Second
 
-	metricLabels = []string{
-		"lagoon_storage_calculator_kilobytes",
+	metricClaims = []string{
+		`lagoon_storage_calculator_kilobytes{claimenv="123",claimpvc="basic-data",environment="develop",lagoon_namespace="example-project-develop",project="example-project"}`,
+		`lagoon_storage_calculator_kilobytes{claimenv="123",claimpvc="basic-data",environment="main",lagoon_namespace="example-project-main",project="example-project"}`,
+		`lagoon_storage_calculator_kilobytes{claimenv="123",claimpvc="mariadb",environment="develop",lagoon_namespace="example-project-develop",project="example-project"}`,
+		`lagoon_storage_calculator_kilobytes{claimenv="123",claimpvc="postgres",environment="develop",lagoon_namespace="example-project-develop",project="example-project"}`,
 	}
 )
 
@@ -212,6 +215,21 @@ var _ = Describe("controller", Ordered, func() {
 				return nil
 			}
 			EventuallyWithOffset(1, verifyStorageCalculatorRuns, duration, interval).Should(Succeed())
+			verifyStorageCalculatorRuns2 := func() error {
+				cmd = exec.Command(utils.Kubectl(), "logs",
+					controllerPodName, "-c", "manager",
+					"-n", namespace,
+				)
+				podlogs, err := utils.Run(cmd)
+				ExpectWithOffset(2, err).NotTo(HaveOccurred())
+				if !strings.Contains(string(podlogs), "storage in example-project-develop") {
+					return fmt.Errorf("storage-calculator-pod not created")
+				}
+				return nil
+			}
+			EventuallyWithOffset(1, verifyStorageCalculatorRuns2, duration, interval).Should(Succeed())
+
+			time.Sleep(10 * time.Second)
 
 			By("validating that unauthenticated metrics requests fail")
 			runCmd := `curl -s -k https://storage-calculator-controller-manager-metrics-service.storage-calculator-system.svc.cluster.local:8443/metrics | grep -v "#" | grep "lagoon_"`
@@ -223,7 +241,7 @@ var _ = Describe("controller", Ordered, func() {
 			output, err := utils.RunCommonsCommand(namespace, runCmd)
 			ExpectWithOffset(2, err).NotTo(HaveOccurred())
 			fmt.Printf("metrics: %s", string(output))
-			err = utils.CheckStringContainsStrings(string(output), metricLabels)
+			err = utils.CheckStringContainsStrings(string(output), metricClaims)
 			ExpectWithOffset(2, err).NotTo(HaveOccurred())
 			// End tests
 		})
