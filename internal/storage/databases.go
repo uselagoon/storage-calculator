@@ -16,6 +16,8 @@ import (
 	client "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// +kubebuilder:rbac:groups=mariadb.amazee.io;postgres.amazee.io,resources=mariadbconsumers;postgresqlconsumers,verbs=list;watch
+
 // checkDatabasesCreatePods calculates storage usage for databases managed by dbaas-operator.
 // Databases running as a pod are handled by the volumes calculator.
 func (c *Calculator) checkDatabasesCreatePods(
