@@ -20,6 +20,8 @@ endif
 KIND_CLUSTER ?= storage-calculator
 KIND_NETWORK ?= storage-controller
 
+TIMEOUT = 30m
+
 KIND_VERSION = v0.25.0
 KUBECTL_VERSION := v1.31.0
 HELM_VERSION := v3.16.1
@@ -244,7 +246,7 @@ regenerate-broker-certs:
 
 # Create a kind cluster locally and run the test e2e test suite against it
 .PHONY: kind/test-e2e  # Run the e2e tests against a Kind k8s instance that is spun up locally
-kind/test-e2e: create-kind-cluster kind/re-test-e2e
+kind/test-e2e: create-kind-cluster install-dbaas-operator kind/re-test-e2e
 	
 .PHONY: local-kind/test-e2e  # Run the e2e tests against a Kind k8s instance that is spun up locally
 kind/re-test-e2e:
@@ -260,11 +262,14 @@ kind/clean:
 
 # Utilize Kind or modify the e2e tests to load the image locally, enabling compatibility with other vendors.
 .PHONY: test-e2e  # Run the e2e tests against a Kind k8s instance that is spun up inside github action.
-test-e2e: local-dev/tools generate-broker-certs
+test-e2e: generate-broker-certs
 	($(KUBECTL) create namespace storage-calculator-system || echo "namespace exists") && \
 	($(KUBECTL) -n storage-calculator-system delete secret lagoon-broker-tls || echo "lagoon-broker-tls doesn't exist, ignoring") && \
 	$(KUBECTL) -n storage-calculator-system create secret generic lagoon-broker-tls --from-file=tls.crt=local-dev/certificates/clienttls.crt --from-file=tls.key=local-dev/certificates/clienttls.key --from-file=ca.crt=local-dev/certificates/ca.crt && \
 	go test ./test/e2e/ -v -ginkgo.v
+
+.PHONY: github/test-e2e
+github/test-e2e: local-dev/tools install-dbaas-operator test-e2e
 
 .PHONY: kind/set-kubeconfig
 kind/set-kubeconfig:
@@ -301,3 +306,56 @@ CONTROLLER_GEN=$(GOBIN)/controller-gen
 else
 CONTROLLER_GEN=$(shell which controller-gen)
 endif
+
+.PHONY: install-mariadb
+install-mariadb:
+	$(HELM) upgrade \
+		--install \
+		--create-namespace \
+		--namespace mariadb \
+		--wait \
+		--timeout $(TIMEOUT) \
+		$$($(KUBECTL) get ns mariadb > /dev/null 2>&1 && echo --set auth.rootPassword=$$($(KUBECTL) get secret --namespace mariadb mariadb -o json | $(JQ) -r '.data."mariadb-root-password" | @base64d')) \
+		--version=0.2.1 \
+		mariadb \
+		oci://registry-1.docker.io/cloudpirates/mariadb
+
+.PHONY: install-postgresql
+install-postgresql:
+	# root password is required on upgrade if the chart is already installed
+	$(HELM) upgrade \
+		--install \
+		--create-namespace \
+		--namespace postgresql \
+		--wait \
+		--timeout $(TIMEOUT) \
+		$$($(KUBECTL) get ns postgresql > /dev/null 2>&1 && echo --set auth.postgresPassword=$$($(KUBECTL) get secret --namespace postgresql postgresql -o json | $(JQ) -r '.data."postgres-password" | @base64d')) \
+		--version=0.2.2 \
+		postgresql \
+		oci://registry-1.docker.io/cloudpirates/postgres
+
+.PHONY: install-dbaas-operator
+install-dbaas-operator: install-mariadb install-postgresql
+	$(HELM) upgrade \
+		--install \
+		--create-namespace \
+		--namespace dbaas-operator \
+		--wait \
+		--timeout $(TIMEOUT) \
+		--set enableMariaDBProviders=true \
+		--set enableMongoDBProviders=true \
+		--set enablePostreSQLProviders=true \
+		--set mariadbProviders.development.environment=development \
+		--set mariadbProviders.development.hostname=mariadb.mariadb.svc.cluster.local \
+		--set mariadbProviders.development.readReplicaHostnames[0]=mariadb.mariadb.svc.cluster.local \
+		--set mariadbProviders.development.password=$$($(KUBECTL) get secret --namespace mariadb mariadb -o json | $(JQ) -r '.data."mariadb-root-password" | @base64d') \
+		--set mariadbProviders.development.port=3306 \
+		--set mariadbProviders.development.user=root \
+		--set postgresqlProviders.development.environment=development \
+		--set postgresqlProviders.development.hostname=postgresql.postgresql.svc.cluster.local \
+		--set postgresqlProviders.development.password=$$($(KUBECTL) get secret --namespace postgresql postgresql -o json | $(JQ) -r '.data."postgres-password" | @base64d') \
+		--set postgresqlProviders.development.port=5432 \
+		--set postgresqlProviders.development.user=postgres \
+		--version=0.4.0 \
+		dbaas-operator \
+		amazeeio/dbaas-operator

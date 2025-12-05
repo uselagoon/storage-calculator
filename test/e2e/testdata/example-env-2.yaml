@@ -3,7 +3,7 @@ kind: Namespace
 metadata:
   name: example-project-develop
   labels:
-    lagoon.sh/environmentType: production
+    lagoon.sh/environmentType: development
     lagoon.sh/storageCalculatorEnabled: 'true'
     lagoon.sh/environmentId: '123'
     lagoon.sh/environment: 'develop'
@@ -22,7 +22,7 @@ metadata:
     app.kubernetes.io/name: basic-persistent
     lagoon.sh/buildType: branch
     lagoon.sh/environment: develop
-    lagoon.sh/environmentType: production
+    lagoon.sh/environmentType: development
     lagoon.sh/project: example-project
     lagoon.sh/service: basic
     lagoon.sh/service-type: basic-persistent
@@ -50,7 +50,7 @@ metadata:
     app.kubernetes.io/name: basic-persistent
     lagoon.sh/buildType: branch
     lagoon.sh/environment: develop
-    lagoon.sh/environmentType: production
+    lagoon.sh/environmentType: development
     lagoon.sh/project: example-project
     lagoon.sh/service: basic
     lagoon.sh/service-type: basic-persistent
@@ -77,7 +77,7 @@ spec:
         app.kubernetes.io/name: basic-persistent
         lagoon.sh/buildType: branch
         lagoon.sh/environment: develop
-        lagoon.sh/environmentType: production
+        lagoon.sh/environmentType: development
         lagoon.sh/project: example-project
         lagoon.sh/service: basic
         lagoon.sh/service-type: basic-persistent
@@ -135,7 +135,7 @@ metadata:
     app.kubernetes.io/name: basic-persistent
     lagoon.sh/buildType: branch
     lagoon.sh/environment: develop
-    lagoon.sh/environmentType: production
+    lagoon.sh/environmentType: development
     lagoon.sh/project: example-project
     lagoon.sh/service: basic
     lagoon.sh/service-type: basic-persistent
@@ -166,7 +166,7 @@ metadata:
     app.kubernetes.io/name: lagoon-env
     lagoon.sh/buildType: branch
     lagoon.sh/environment: name
-    lagoon.sh/environmentType: production
+    lagoon.sh/environmentType: development
     lagoon.sh/project: example-project
     lagoon.sh/template: lagoon-env-0.1.0
   name: lagoon-platform-env
@@ -186,7 +186,7 @@ metadata:
     app.kubernetes.io/name: lagoon-env
     lagoon.sh/buildType: branch
     lagoon.sh/environment: name
-    lagoon.sh/environmentType: production
+    lagoon.sh/environmentType: development
     lagoon.sh/project: example-project
     lagoon.sh/template: lagoon-env-0.1.0
   name: lagoon-env
@@ -195,3 +195,45 @@ stringData:
   MY_SPECIAL_VARIABLE: myspecialvariable
   MY_SPECIAL_VARIABLE1: myspecialvariable1
   MY_SPECIAL_VARIABLE2: myspecialvariable2
+---
+apiVersion: mariadb.amazee.io/v1
+kind: MariaDBConsumer
+metadata:
+  annotations:
+    lagoon.sh/branch: environment-name
+  creationTimestamp: null
+  labels:
+    app.kubernetes.io/instance: mariadb
+    app.kubernetes.io/managed-by: build-deploy-tool
+    app.kubernetes.io/name: mariadb
+    lagoon.sh/buildType: branch
+    lagoon.sh/environment: name
+    lagoon.sh/environmentType: development
+    lagoon.sh/project: example-project
+    lagoon.sh/service-type: mariadb-dbaas
+    lagoon.sh/template: mariadb-dbaas-0.1.0
+  name: mariadb
+  namespace: example-project-develop
+spec:
+  environment: development
+---
+apiVersion: postgres.amazee.io/v1
+kind: PostgreSQLConsumer
+metadata:
+  annotations:
+    lagoon.sh/branch: environment-name
+  creationTimestamp: null
+  labels:
+    app.kubernetes.io/instance: postgres
+    app.kubernetes.io/managed-by: build-deploy-tool
+    app.kubernetes.io/name: postgres
+    lagoon.sh/buildType: branch
+    lagoon.sh/environment: name
+    lagoon.sh/environmentType: development
+    lagoon.sh/project: example-project
+    lagoon.sh/service-type: postgres-dbaas
+    lagoon.sh/template: postgres-dbaas-0.1.0
+  name: postgres
+  namespace: example-project-develop
+spec:
+  environment: development
