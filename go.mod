@@ -1,6 +1,6 @@
 module github.com/uselagoon/storage-calculator
 
-go 1.25.0
+go 1.26
 
 require (
 	github.com/amazeeio/dbaas-operator v0.4.0
