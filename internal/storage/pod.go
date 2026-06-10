@@ -206,6 +206,7 @@ func (c *Calculator) getPodSpec(
 			Labels: map[string]string{
 				"lagoon.sh/storageCalculator": "true",
 			},
+			Annotations: map[string]string{},
 		},
 		Spec: corev1.PodSpec{
 			Containers: []corev1.Container{
@@ -216,6 +217,10 @@ func (c *Calculator) getPodSpec(
 				},
 			},
 		},
+	}
+	if !c.ClusterAutoscalerEvict {
+		// try to prevent calculator pods from being evicted by cluster autoscaler
+		storagePod.Annotations["cluster-autoscaler.kubernetes.io/safe-to-evict"] = "false"
 	}
 
 	// Pod may need to run on specific node to mount some volumes.

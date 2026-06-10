@@ -30,15 +30,16 @@ import (
 
 // Calculator handles collecting storage calculator information
 type Calculator struct {
-	Client          client.Client
-	MQ              *broker.MQ
-	Log             logr.Logger
-	Scheme          *runtime.Scheme
-	IgnoreRegex     string
-	CalculatorImage string
-	Debug           bool
-	ExportMetrics   bool
-	PromStorage     *prometheus.GaugeVec
+	Client                 client.Client
+	MQ                     *broker.MQ
+	Log                    logr.Logger
+	Scheme                 *runtime.Scheme
+	IgnoreRegex            string
+	CalculatorImage        string
+	Debug                  bool
+	ExportMetrics          bool
+	PromStorage            *prometheus.GaugeVec
+	ClusterAutoscalerEvict bool
 }
 
 type ActionEvent struct {
