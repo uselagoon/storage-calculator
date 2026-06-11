@@ -92,6 +92,7 @@ func main() {
 	var mqWorkers int
 	var rabbitRetryInterval int
 	var exportPrometheusMetrics bool
+	var clusterAutoscalerEvict bool
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
 	flag.BoolVar(&secureMetrics, "metrics-secure", true,
@@ -129,6 +130,9 @@ func main() {
 	flag.StringVar(&storageCalculatorImage, "storage-calculator-image", "uselagoon/database-tools",
 		"The image to use for storage-calculator pods.")
 	flag.BoolVar(&exportPrometheusMetrics, "prometheus-metrics", false, "Export prometheus metrics.")
+	// Flag to control the setting for the label cluster-autoscaler.kubernetes.io/safe-to-evict on pods, defaults to false to avoid calculation pods
+	flag.BoolVar(&clusterAutoscalerEvict, "enable-cluster-autoscaler-eviction", false,
+		"Flag to enable cluster autoscaler eviction on storage-calculator pods, defaults to false to avoid evicting running calculators")
 
 	opts := zap.Options{
 		Development: true,
@@ -260,14 +264,15 @@ func main() {
 
 	// setup the handler with the k8s and lagoon clients
 	storage := &storage.Calculator{
-		Client:          mgr.GetClient(),
-		MQ:              messaging,
-		Log:             ctrl.Log,
-		IgnoreRegex:     ignoreRegex,
-		CalculatorImage: storageCalculatorImage,
-		Debug:           false,
-		ExportMetrics:   exportPrometheusMetrics,
-		PromStorage:     prom_storage,
+		Client:                 mgr.GetClient(),
+		MQ:                     messaging,
+		Log:                    ctrl.Log,
+		IgnoreRegex:            ignoreRegex,
+		CalculatorImage:        storageCalculatorImage,
+		Debug:                  false,
+		ExportMetrics:          exportPrometheusMetrics,
+		PromStorage:            prom_storage,
+		ClusterAutoscalerEvict: clusterAutoscalerEvict,
 	}
 	c := cron.New()
 	// add the cronjobs we need.
