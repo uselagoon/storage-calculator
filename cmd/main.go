@@ -28,6 +28,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/uselagoon/storage-calculator/internal/broker"
+	"github.com/uselagoon/storage-calculator/internal/namespace"
 	"github.com/uselagoon/storage-calculator/internal/storage"
 
 	"github.com/robfig/cron/v3"
@@ -296,7 +297,15 @@ func main() {
 		setupLog.Error(err, "unable to set up ready check")
 		os.Exit(1)
 	}
-
+	if err = (&namespace.NamespaceReconciler{
+		Client:  mgr.GetClient(),
+		Log:     ctrl.Log.WithName("controllers").WithName("Namespace"),
+		Scheme:  mgr.GetScheme(),
+		Storage: storage,
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Namespace")
+		os.Exit(1)
+	}
 	setupLog.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		setupLog.Error(err, "problem running manager")
